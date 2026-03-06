@@ -1,7 +1,7 @@
 #pragma once
 
 // =============================================================================
-// Ratputer — Compile-Time Configuration
+// RatCom — Compile-Time Configuration
 // =============================================================================
 
 #define RATPUTER_VERSION_MAJOR  1
@@ -31,11 +31,11 @@
 #define PATH_MESSAGES       "/messages/"
 
 // --- SD Card Paths ---
-#define SD_PATH_CONFIG_DIR   "/ratputer/config"
-#define SD_PATH_USER_CONFIG  "/ratputer/config/user.json"
-#define SD_PATH_MESSAGES     "/ratputer/messages/"
-#define SD_PATH_CONTACTS     "/ratputer/contacts/"
-#define SD_PATH_IDENTITY     "/ratputer/identity/identity.key"
+#define SD_PATH_CONFIG_DIR   "/ratcom/config"
+#define SD_PATH_USER_CONFIG  "/ratcom/config/user.json"
+#define SD_PATH_MESSAGES     "/ratcom/messages/"
+#define SD_PATH_CONTACTS     "/ratcom/contacts/"
+#define SD_PATH_IDENTITY     "/ratcom/identity/identity.key"
 
 // --- TCP Client ---
 #define MAX_TCP_CONNECTIONS         4

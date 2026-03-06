@@ -1,8 +1,8 @@
-# Ratputer — Architecture
+# RatCom — Architecture
 
 ## Overview
 
-Ratputer is a standalone Reticulum transport node with LXMF messaging, built for the M5Stack Cardputer Adv with Cap LoRa-1262 radio module.
+RatCom is a standalone Reticulum transport node with LXMF messaging, built for the M5Stack Cardputer Adv with Cap LoRa-1262 radio module.
 
 ## Layer Diagram
 
@@ -109,7 +109,7 @@ User types message → MessageView → LXMFManager::send()
 ```
 SettingsScreen → UserConfig::save(sd, flash)
     ├── serialize to JSON string
-    ├── SDStore::writeAtomic("/ratputer/config/user.json")  → .tmp → verify → .bak → rename
+    ├── SDStore::writeAtomic("/ratcom/config/user.json")  → .tmp → verify → .bak → rename
     └── FlashStore::writeAtomic("/config/user.json")        → .tmp → verify → .bak → rename
 ```
 

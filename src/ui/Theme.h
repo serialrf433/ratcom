@@ -3,7 +3,7 @@
 #include <M5GFX.h>
 
 // =============================================================================
-// Ratputer — Cyberpunk Theme Constants
+// RatCom — Cyberpunk Theme Constants
 // =============================================================================
 
 namespace Theme {

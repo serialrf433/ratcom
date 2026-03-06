@@ -7,7 +7,7 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 
-// Ratputer BLE service UUID (custom)
+// RatCom BLE service UUID (custom)
 #define RATPUTER_SERVICE_UUID    "a7f3c8e2-0001-4b6d-9f12-4a7e3d5c8b01"
 #define RATPUTER_RX_CHAR_UUID    "a7f3c8e2-0002-4b6d-9f12-4a7e3d5c8b01"
 #define RATPUTER_TX_CHAR_UUID    "a7f3c8e2-0003-4b6d-9f12-4a7e3d5c8b01"
@@ -27,7 +27,7 @@ class StubServerCallbacks : public BLEServerCallbacks {
 };
 
 bool BLEStub::begin() {
-    BLEDevice::init("Ratputer");
+    BLEDevice::init("RatCom");
     bleServer = BLEDevice::createServer();
     bleServer->setCallbacks(new StubServerCallbacks());
 
@@ -39,7 +39,7 @@ bool BLEStub::begin() {
         RATPUTER_RX_CHAR_UUID,
         BLECharacteristic::PROPERTY_WRITE
     );
-    rxChar->setValue("Ratputer v" RATPUTER_VERSION_STRING " — BLE stub");
+    rxChar->setValue("RatCom v" RATPUTER_VERSION_STRING " — BLE stub");
 
     // TX characteristic (notify to client)
     txChar = service->createCharacteristic(

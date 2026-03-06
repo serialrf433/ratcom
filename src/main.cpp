@@ -1,5 +1,5 @@
 // =============================================================================
-// Ratputer v1.0 — Main Entry Point
+// RatCom v1.0 — Main Entry Point
 // C1-C7: Radio, Keyboard, Display, Reticulum, Nodes, WiFi, LXMF
 // =============================================================================
 
@@ -292,7 +292,7 @@ void setup() {
     // Boot loop detection (NVS — separate from LittleFS)
     {
         Preferences prefs;
-        if (prefs.begin("ratputer", false)) {
+        if (prefs.begin("ratcom", false)) {
             int bc = prefs.getInt("bootc", 0);
             prefs.putInt("bootc", bc + 1);
             prefs.end();
@@ -329,10 +329,10 @@ void setup() {
     ui.render();
     if (sdStore.begin(&loraSPI, SD_CS)) {
         // Ensure all SD directories exist
-        sdStore.ensureDir("/ratputer");
-        sdStore.ensureDir("/ratputer/messages");
-        sdStore.ensureDir("/ratputer/contacts");
-        sdStore.ensureDir("/ratputer/identity");
+        sdStore.ensureDir("/ratcom");
+        sdStore.ensureDir("/ratcom/messages");
+        sdStore.ensureDir("/ratcom/contacts");
+        sdStore.ensureDir("/ratcom/identity");
 
         // Serial wipe command: send "WIPE" within 500ms to wipe SD
         Serial.println("[SD] Send 'WIPE' now to wipe SD card (500ms window)...");
@@ -341,7 +341,7 @@ void setup() {
         while (millis() < wipeDeadline) {
             while (Serial.available()) cmd += (char)Serial.read();
             if (cmd.indexOf("WIPE") >= 0) {
-                sdStore.wipeRatputer();
+                sdStore.wipeRatcom();
                 Serial.println("[SD] SD card wiped and reinitialized");
                 break;
             }
@@ -537,13 +537,13 @@ void setup() {
     // Clear boot loop counter — setup completed successfully
     {
         Preferences prefs;
-        if (prefs.begin("ratputer", false)) {
+        if (prefs.begin("ratcom", false)) {
             prefs.putInt("bootc", 0);
             prefs.end();
         }
     }
 
-    Serial.println("[BOOT] Ratputer ready");
+    Serial.println("[BOOT] RatCom ready");
 }
 
 // =============================================================================

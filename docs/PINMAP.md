@@ -1,4 +1,4 @@
-# Ratputer — Hardware Pin Map
+# RatCom — Hardware Pin Map
 
 M5Stack Cardputer Adv (ESP32-S3) + Cap LoRa-1262
 

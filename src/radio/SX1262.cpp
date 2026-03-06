@@ -2,7 +2,7 @@
 // SX1262 LoRa Radio Driver
 // Extracted from RNode_Firmware_CE (MIT License)
 // Original: Copyright (c) Sandeep Mistry, modifications by Mark Qvist & Jacob Eva
-// Simplified for Ratputer: single-interface, no CSMA/CA, no sx127x/sx128x
+// Simplified for RatCom: single-interface, no CSMA/CA, no sx127x/sx128x
 // =============================================================================
 
 #include "SX1262.h"

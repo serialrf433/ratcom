@@ -1,4 +1,4 @@
-# Ratputer — Build & Flash Reference
+# RatCom — Build & Flash Reference
 
 ## Prerequisites
 
@@ -45,7 +45,7 @@ A merged binary includes bootloader + partition table + app in one file for clea
 
 ```bash
 python3 -m esptool --chip esp32s3 merge-bin \
-    --output ratputer_merged.bin \
+    --output ratcom_merged.bin \
     --flash-mode dio --flash-size 8MB \
     0x0    ~/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32s3/bin/bootloader_dio_80m.bin \
     0x8000 .pio/build/ratputer_915/partitions.bin \
@@ -54,7 +54,7 @@ python3 -m esptool --chip esp32s3 merge-bin \
 
 python3 -m esptool --chip esp32s3 --port /dev/cu.usbmodem* --baud 460800 \
     --before default-reset --after hard-reset \
-    write-flash 0x0 ratputer_merged.bin
+    write-flash 0x0 ratcom_merged.bin
 ```
 
 ## Serial Monitor
@@ -67,7 +67,7 @@ Or with any serial terminal at 115200 baud.
 
 ### Serial WIPE Command
 
-Within the first 500ms of boot, send `WIPE` over serial to wipe the SD card's `/ratputer/` directory. Useful for factory reset of stored messages, contacts, and config.
+Within the first 500ms of boot, send `WIPE` over serial to wipe the SD card's `/ratcom/` directory. Useful for factory reset of stored messages, contacts, and config.
 
 ## USB Port Identification
 
@@ -87,7 +87,7 @@ From `platformio.ini`:
 | Flag | Purpose |
 |------|---------|
 | `-fexceptions` | Enable C++ exceptions (required by microReticulum) |
-| `-DRATPUTER=1` | Main feature flag — guards all Ratputer-specific code |
+| `-DRATPUTER=1` | Main feature flag — guards all RatCom-specific code |
 | `-DARDUINO_USB_CDC_ON_BOOT=1` | USB CDC serial on boot (USBMode=default) |
 | `-DARDUINO_USB_MODE=1` | USB mode 1 = USB-Serial/JTAG (not native CDC) |
 | `-DRNS_USE_FS` | microReticulum: use filesystem for persistence |

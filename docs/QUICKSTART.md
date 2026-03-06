@@ -1,4 +1,4 @@
-# Ratputer — Quick Start
+# RatCom — Quick Start
 
 ## Hardware Required
 
@@ -13,8 +13,8 @@
 pip install platformio
 
 # Clone and build
-git clone https://github.com/defidude/Ratputer.git
-cd Ratputer
+git clone https://github.com/defidude/RatCom.git
+cd RatCom
 python3 -m platformio run -e ratputer_915
 
 # Flash to device (use glob to match USB port)
@@ -32,9 +32,9 @@ The Cardputer Adv uses USB-Serial/JTAG — the port appears as `/dev/cu.usbmodem
 1. Power on the Cardputer Adv
 2. Boot animation plays with progress bar
 3. Radio initializes at 915 MHz
-4. SD card checked (auto-creates `/ratputer/` directories)
+4. SD card checked (auto-creates `/ratcom/` directories)
 5. Reticulum transport node starts, identity generated
-6. WiFi AP starts: `ratputer-XXXX` (password: `ratspeak`)
+6. WiFi AP starts: `ratcom-XXXX` (password: `ratspeak`)
 7. Home screen shows identity hash and status
 
 ## Navigation
@@ -56,15 +56,15 @@ Keys match the physical arrow positions on the Cardputer Adv keyboard:
 
 ## WiFi Setup
 
-Default: AP mode with SSID `ratputer-XXXX`.
+Default: AP mode with SSID `ratcom-XXXX`.
 
 ### AP Mode (default)
 
-Connect a laptop to the `ratputer-XXXX` WiFi network, then configure `rnsd` with a TCPClientInterface pointing at `192.168.4.1:4242`.
+Connect a laptop to the `ratcom-XXXX` WiFi network, then configure `rnsd` with a TCPClientInterface pointing at `192.168.4.1:4242`.
 
 ### STA Mode
 
-To connect Ratputer to your WiFi network:
+To connect RatCom to your WiFi network:
 
 1. Press **Ctrl+S** → WiFi → Mode → STA
 2. Enter your WiFi SSID and password
@@ -80,10 +80,10 @@ Select OFF in WiFi settings to disable WiFi entirely (saves power and ~20KB heap
 Insert a microSD card before powering on. The firmware auto-creates:
 
 ```
-/ratputer/config/     Settings backup
-/ratputer/messages/   Message archives
-/ratputer/contacts/   Discovered nodes
-/ratputer/identity/   Identity key backup
+/ratcom/config/     Settings backup
+/ratcom/messages/   Message archives
+/ratcom/contacts/   Discovered nodes
+/ratcom/identity/   Identity key backup
 ```
 
 To wipe SD data: connect serial at 115200 baud, send `WIPE` within 500ms of boot.
@@ -110,9 +110,9 @@ Press **Ctrl+S** to access settings:
 
 Changes take effect immediately and persist to both flash and SD.
 
-## Connecting Two Ratputers
+## Connecting Two RatComs
 
-Two Ratputers on the same LoRa settings will discover each other automatically:
+Two RatComs on the same LoRa settings will discover each other automatically:
 
 1. Power on both devices
 2. Wait ~30 seconds for announces to propagate
@@ -124,29 +124,29 @@ Both devices must use the same frequency, spreading factor, bandwidth, and codin
 
 ## Connecting to a Desktop Reticulum Instance
 
-### Option A: AP Mode Bridge (Ratputer as hotspot)
+### Option A: AP Mode Bridge (RatCom as hotspot)
 
-1. Leave Ratputer in AP mode (default)
-2. On your laptop, connect to `ratputer-XXXX` (password: `ratspeak`)
+1. Leave RatCom in AP mode (default)
+2. On your laptop, connect to `ratcom-XXXX` (password: `ratspeak`)
 3. Add to `~/.reticulum/config`:
    ```ini
-   [[ratputer]]
+   [[ratcom]]
      type = TCPClientInterface
      target_host = 192.168.4.1
      target_port = 4242
    ```
 4. Restart `rnsd` — your desktop is now on the LoRa mesh
 
-### Option B: STA Mode (Ratputer joins your WiFi)
+### Option B: STA Mode (RatCom joins your WiFi)
 
-1. Switch Ratputer to STA mode (Ctrl+S → WiFi → Mode → STA)
+1. Switch RatCom to STA mode (Ctrl+S → WiFi → Mode → STA)
 2. Enter your WiFi SSID and password
-3. On your laptop (same network), configure Ratputer as a TCP server interface in `~/.reticulum/config`:
+3. On your laptop (same network), configure RatCom as a TCP server interface in `~/.reticulum/config`:
    ```ini
-   [[ratputer]]
+   [[ratcom]]
      type = TCPServerInterface
      listen_ip = 0.0.0.0
      listen_port = 4242
    ```
-4. On Ratputer, add a TCP endpoint pointing to your laptop's IP and port 4242
+4. On RatCom, add a TCP endpoint pointing to your laptop's IP and port 4242
 5. Both sides can now exchange Reticulum traffic over WiFi

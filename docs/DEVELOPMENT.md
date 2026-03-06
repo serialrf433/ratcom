@@ -1,8 +1,8 @@
-# Ratputer — Developer Guide
+# RatCom — Developer Guide
 
 ## Project Overview
 
-Ratputer is a **standalone Reticulum transport node** with LXMF messaging, built for the M5Stack Cardputer Adv with Cap LoRa-1262 radio. It is **NOT an RNode** — it does not speak KISS protocol. It runs its own Reticulum stack (microReticulum) directly on the device.
+RatCom is a **standalone Reticulum transport node** with LXMF messaging, built for the M5Stack Cardputer Adv with Cap LoRa-1262 radio. It is **NOT an RNode** — it does not speak KISS protocol. It runs its own Reticulum stack (microReticulum) directly on the device.
 
 Key characteristics:
 - Standalone operation — no host computer required
@@ -85,7 +85,7 @@ JSON-based settings persisted to storage. Schema defined by `UserSettings` struc
   "loraCR": 5,
   "loraTxPower": 10,
   "wifiMode": 1,           // 0=OFF, 1=AP, 2=STA
-  "wifiAPSSID": "ratputer-XXXX",
+  "wifiAPSSID": "ratcom-XXXX",
   "wifiAPPassword": "ratspeak",
   "wifiSTASSID": "",
   "wifiSTAPassword": "",
@@ -99,7 +99,7 @@ JSON-based settings persisted to storage. Schema defined by `UserSettings` struc
 }
 ```
 
-**Dual-backend persistence**: `UserConfig::load(SDStore&, FlashStore&)` reads from SD first (`/ratputer/config/user.json`), falls back to flash (`/config/user.json`). `save()` writes to both.
+**Dual-backend persistence**: `UserConfig::load(SDStore&, FlashStore&)` reads from SD first (`/ratcom/config/user.json`), falls back to flash (`/config/user.json`). `save()` writes to both.
 
 ## Transport Architecture
 
@@ -125,7 +125,7 @@ Every LoRa packet has a 1-byte header prepended:
 - Upper nibble: random sequence number (for future split-packet tracking)
 - Lower nibble: flags (`0x01` = split, not currently implemented)
 
-This matches the RNode on-air format, so Ratputer packets are structurally compatible with RNodes on the same frequency/modulation.
+This matches the RNode on-air format, so RatCom packets are structurally compatible with RNodes on the same frequency/modulation.
 
 ## Reticulum Integration
 
@@ -141,7 +141,7 @@ Key integration points in `ReticulumManager`:
 
 ### Identity Persistence
 
-Device identity (Ed25519 keypair) is stored at `/identity/identity.key` in LittleFS with a backup copy on SD at `/ratputer/identity/identity.key`. If flash identity is lost (e.g., LittleFS format), the SD backup is restored automatically.
+Device identity (Ed25519 keypair) is stored at `/identity/identity.key` in LittleFS with a backup copy on SD at `/ratcom/identity/identity.key`. If flash identity is lost (e.g., LittleFS format), the SD backup is restored automatically.
 
 ### Path Persistence
 
@@ -161,7 +161,7 @@ source_hash(16 bytes) + msgpack([timestamp, content, title, fields]) + signature
 
 Messages under the MDU (Maximum Data Unit, ~254 bytes for LoRa) are sent as single direct packets. Larger messages would require link-based transfer (not yet implemented).
 
-Messages are stored as JSON per-conversation in both flash (`/messages/<peer_hex>/`) and SD (`/ratputer/messages/<peer_hex>/`).
+Messages are stored as JSON per-conversation in both flash (`/messages/<peer_hex>/`) and SD (`/ratcom/messages/<peer_hex>/`).
 
 ## Storage Architecture
 
@@ -177,7 +177,7 @@ Secondary/backup storage on microSD card. Shares HSPI bus with LoRa radio.
 
 Directory structure:
 ```
-/ratputer/
+/ratcom/
 ├── config/
 │   └── user.json        Runtime settings backup
 ├── messages/
@@ -197,7 +197,7 @@ Three modes, selected in Settings:
 
 ```
 RAT_WIFI_OFF (0) ──→ No WiFi, saves power + heap
-RAT_WIFI_AP  (1) ──→ Creates AP "ratputer-XXXX", TCP server on :4242
+RAT_WIFI_AP  (1) ──→ Creates AP "ratcom-XXXX", TCP server on :4242
 RAT_WIFI_STA (2) ──→ Connects to configured network, TCP client connections
 ```
 

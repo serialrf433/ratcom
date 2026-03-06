@@ -159,16 +159,16 @@ String SDStore::readString(const char* path) {
     return result;
 }
 
-bool SDStore::wipeRatputer() {
+bool SDStore::wipeRatcom() {
     if (!_ready) return false;
-    Serial.println("[SD] Wiping /ratputer/ ...");
-    wipeDir("/ratputer/messages");
-    wipeDir("/ratputer/contacts");
-    wipeDir("/ratputer/identity");
-    wipeDir("/ratputer/config");
-    SD.rmdir("/ratputer");
+    Serial.println("[SD] Wiping /ratcom/ ...");
+    wipeDir("/ratcom/messages");
+    wipeDir("/ratcom/contacts");
+    wipeDir("/ratcom/identity");
+    wipeDir("/ratcom/config");
+    SD.rmdir("/ratcom");
     Serial.println("[SD] Wipe complete, recreating dirs...");
-    return formatForRatputer();
+    return formatForRatcom();
 }
 
 void SDStore::wipeDir(const char* path) {
@@ -188,16 +188,16 @@ void SDStore::wipeDir(const char* path) {
     dir.close();
 }
 
-bool SDStore::formatForRatputer() {
+bool SDStore::formatForRatcom() {
     if (!_ready) return false;
 
-    Serial.println("[SD] Creating Ratputer directory structure...");
+    Serial.println("[SD] Creating RatCom directory structure...");
     bool ok = true;
-    ok &= ensureDir("/ratputer");
-    ok &= ensureDir("/ratputer/config");
-    ok &= ensureDir("/ratputer/messages");
-    ok &= ensureDir("/ratputer/contacts");
-    ok &= ensureDir("/ratputer/identity");
+    ok &= ensureDir("/ratcom");
+    ok &= ensureDir("/ratcom/config");
+    ok &= ensureDir("/ratcom/messages");
+    ok &= ensureDir("/ratcom/contacts");
+    ok &= ensureDir("/ratcom/identity");
 
     if (ok) {
         Serial.println("[SD] Directory structure ready");

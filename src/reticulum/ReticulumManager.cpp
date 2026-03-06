@@ -167,7 +167,7 @@ bool ReticulumManager::loadOrCreateIdentity() {
     // Tier 2: NVS (ESP32 Preferences — always available, higher trust than SD)
     {
         Preferences prefs;
-        if (prefs.begin("ratputer_id", true)) {
+        if (prefs.begin("ratcom_id", true)) {
             size_t keyLen = prefs.getBytesLength("privkey");
             if (keyLen > 0 && keyLen <= 128) {
                 uint8_t keyBuf[128];
@@ -218,12 +218,12 @@ void ReticulumManager::saveIdentityToAll(const RNS::Bytes& keyData) {
     _flash->writeAtomic(PATH_IDENTITY, keyData.data(), keyData.size());
     // SD
     if (_sd && _sd->isReady()) {
-        _sd->ensureDir("/ratputer/identity");
+        _sd->ensureDir("/ratcom/identity");
         _sd->writeAtomic(SD_PATH_IDENTITY, keyData.data(), keyData.size());
     }
     // NVS (always available)
     Preferences prefs;
-    if (prefs.begin("ratputer_id", false)) {
+    if (prefs.begin("ratcom_id", false)) {
         prefs.putBytes("privkey", keyData.data(), keyData.size());
         prefs.end();
         Serial.println("[RNS] Identity saved to NVS");

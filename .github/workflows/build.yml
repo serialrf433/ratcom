@@ -30,7 +30,7 @@ jobs:
             --flash_mode dio \
             --flash_size 8MB \
             --flash_freq 80m \
-            -o ratputer-firmware.bin \
+            -o ratcom-firmware.bin \
             0x0000 .pio/build/ratputer_915/bootloader.bin \
             0x8000 .pio/build/ratputer_915/partitions.bin \
             0xe000 ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin \
@@ -39,8 +39,8 @@ jobs:
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ratputer-firmware
-          path: ratputer-firmware.bin
+          name: ratcom-firmware
+          path: ratcom-firmware.bin
 
   release:
     needs: build
@@ -68,7 +68,7 @@ jobs:
             --flash_mode dio \
             --flash_size 8MB \
             --flash_freq 80m \
-            -o ratputer-firmware.bin \
+            -o ratcom-firmware.bin \
             0x0000 .pio/build/ratputer_915/bootloader.bin \
             0x8000 .pio/build/ratputer_915/partitions.bin \
             0xe000 ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin \
@@ -77,5 +77,5 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ratputer-firmware.bin
+          files: ratcom-firmware.bin
           generate_release_notes: true

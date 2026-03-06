@@ -10,8 +10,8 @@ bool MessageStore::begin(FlashStore* flash, SDStore* sd) {
 
     // If SD is ready, ensure SD message directory and migrate
     if (_sd && _sd->isReady()) {
-        _sd->ensureDir("/ratputer");
-        _sd->ensureDir("/ratputer/messages");
+        _sd->ensureDir("/ratcom");
+        _sd->ensureDir("/ratcom/messages");
         migrateFlashToSD();
     }
 

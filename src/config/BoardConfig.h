@@ -1,7 +1,7 @@
 #pragma once
 
 // =============================================================================
-// Ratputer — M5Stack Cardputer Adv + Cap LoRa-1262 Pin Definitions
+// RatCom — M5Stack Cardputer Adv + Cap LoRa-1262 Pin Definitions
 // =============================================================================
 
 // --- SX1262 LoRa Radio (Custom SPI — HSPI) ---

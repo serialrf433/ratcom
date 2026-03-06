@@ -1,4 +1,4 @@
-# Ratputer — Hotkey Reference
+# RatCom — Hotkey Reference
 
 All hotkeys use **Ctrl+key** combinations.
 

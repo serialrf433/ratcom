@@ -28,11 +28,11 @@ public:
     uint64_t totalBytes() const;
     uint64_t usedBytes() const;
 
-    // Creates /ratputer/config/ directory tree (does NOT reformat FAT)
-    bool formatForRatputer();
+    // Creates /ratcom/config/ directory tree (does NOT reformat FAT)
+    bool formatForRatcom();
 
-    // Recursively delete /ratputer/* and recreate clean dirs
-    bool wipeRatputer();
+    // Recursively delete /ratcom/* and recreate clean dirs
+    bool wipeRatcom();
 
 private:
     void wipeDir(const char* path);

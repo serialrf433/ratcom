@@ -190,7 +190,7 @@ void SettingsScreen::buildSDCardMenu() {
         snprintf(buf, sizeof(buf), "Free: %llu MB", free / (1024 * 1024));
         _list.addItem(buf);
 
-        _list.addItem("[Initialize for Ratputer]");
+        _list.addItem("[Initialize for RatCom]");
         _list.addItem("[Wipe All Data]");
     } else {
         _list.addItem("Status: NOT INSERTED");
@@ -205,7 +205,7 @@ void SettingsScreen::sdCardFormat() {
         return;
     }
 
-    if (_sdStore->formatForRatputer()) {
+    if (_sdStore->formatForRatcom()) {
         showToast("SD initialized!");
     } else {
         showToast("Init failed");
@@ -540,7 +540,7 @@ void SettingsScreen::renderAbout(M5Canvas& canvas) {
 
     int y = y0 + 14;
     canvas.setTextColor(Theme::PRIMARY);
-    canvas.drawString("Ratputer v" RATPUTER_VERSION_STRING, 4, y); y += 10;
+    canvas.drawString("RatCom v" RATPUTER_VERSION_STRING, 4, y); y += 10;
 
     canvas.setTextColor(Theme::SECONDARY);
     canvas.drawString("M5Stack Cardputer Adv", 4, y); y += 10;
@@ -730,7 +730,7 @@ bool SettingsScreen::handleKey(const KeyEvent& event) {
                     return true;
                 }
                 if (sel == 5) {
-                    if (_sdStore->wipeRatputer()) {
+                    if (_sdStore->wipeRatcom()) {
                         showToast("SD wiped!");
                     } else {
                         showToast("Wipe failed");

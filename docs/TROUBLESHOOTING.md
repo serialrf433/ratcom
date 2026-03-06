@@ -1,4 +1,4 @@
-# Ratputer — Troubleshooting
+# RatCom — Troubleshooting
 
 Collected hardware and software gotchas, organized by category.
 
@@ -88,7 +88,7 @@ The build flag `ARDUINO_USB_MODE=1` selects USB-Serial/JTAG mode (not native CDC
 
 ### Boot loop detection and recovery
 
-Ratputer tracks consecutive boot failures in NVS (non-volatile storage, separate from LittleFS). If 3 consecutive boots fail to reach the end of `setup()`, WiFi is forced OFF on the next boot.
+RatCom tracks consecutive boot failures in NVS (non-volatile storage, separate from LittleFS). If 3 consecutive boots fail to reach the end of `setup()`, WiFi is forced OFF on the next boot.
 
 **How it works**:
 1. On each boot, NVS counter `bootc` increments
@@ -124,7 +124,7 @@ This is the M5Unified library auto-detecting the board type. It's informational,
 
 ### SD card directories missing
 
-On first boot with a new SD card, the `/ratputer/` directory tree doesn't exist.
+On first boot with a new SD card, the `/ratcom/` directory tree doesn't exist.
 
 **Fix**: `setup()` calls `sdStore.ensureDir()` for all required paths after SD init. If directories are still missing, check that SD CS (GPIO 12) is not conflicting with radio SPI.
 
@@ -132,11 +132,11 @@ On first boot with a new SD card, the `/ratputer/` directory tree doesn't exist.
 
 ## Interop & RF Issues
 
-### Ratputer TX/RX verification (QA Round 9)
+### RatCom TX/RX verification (QA Round 9)
 
-- **Ratputer RX confirmed**: Received Heltec V3 RNode announce at -38 dBm, SNR 13.0
-- **Ratputer TX confirmed**: All SX1262 registers verified correct (SF7, BW 500kHz, CR 4/5, sync 0x1424, CRC on)
-- **Heltec V3 RNode receive path**: Has never decoded a single LoRa packet from any source. Shows Ratputer RF as interference (-50 to -81 dBm) but can't decode. This is a Heltec issue, not Ratputer.
+- **RatCom RX confirmed**: Received Heltec V3 RNode announce at -38 dBm, SNR 13.0
+- **RatCom TX confirmed**: All SX1262 registers verified correct (SF7, BW 500kHz, CR 4/5, sync 0x1424, CRC on)
+- **Heltec V3 RNode receive path**: Has never decoded a single LoRa packet from any source. Shows RatCom RF as interference (-50 to -81 dBm) but can't decode. This is a Heltec issue, not RatCom.
 
 ### Debugging RF with RSSI Monitor
 
@@ -152,9 +152,9 @@ Press **Ctrl+T** to send a test packet with a fixed header (0xA0) and payload `R
 
 ### AP and STA are separate modes
 
-Ratputer uses **three WiFi modes**: OFF, AP, STA. These are NOT concurrent — `WIFI_AP_STA` was removed because it consumed ~20KB extra heap and caused instability.
+RatCom uses **three WiFi modes**: OFF, AP, STA. These are NOT concurrent — `WIFI_AP_STA` was removed because it consumed ~20KB extra heap and caused instability.
 
-- **AP mode**: Creates `ratputer-XXXX` hotspot, runs TCP server on port 4242
+- **AP mode**: Creates `ratcom-XXXX` hotspot, runs TCP server on port 4242
 - **STA mode**: Connects to an existing network, creates TCP client connections to configured endpoints
 - **OFF**: No WiFi (saves power and heap)
 
@@ -183,7 +183,7 @@ In STA mode, TCP client connections to configured endpoints are created **once**
 
 ### SD card wipe (preserves flash data)
 
-Connect serial at 115200 baud. Power cycle the device and send `WIPE` within 500ms of boot. This recursively deletes `/ratputer/*` on the SD card and recreates clean directories.
+Connect serial at 115200 baud. Power cycle the device and send `WIPE` within 500ms of boot. This recursively deletes `/ratcom/*` on the SD card and recreates clean directories.
 
 ### Flash erase (full reset)
 
