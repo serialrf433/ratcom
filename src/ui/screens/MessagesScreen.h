@@ -5,6 +5,8 @@
 #include "ui/widgets/ScrollList.h"
 #include "reticulum/LXMFManager.h"
 
+class AnnounceManager;
+
 class MessagesScreen : public Screen {
 public:
     void render(M5Canvas& canvas) override;
@@ -13,6 +15,7 @@ public:
     void onEnter() override;
 
     void setLXMFManager(LXMFManager* lxmf) { _lxmf = lxmf; }
+    void setAnnounceManager(AnnounceManager* am) { _am = am; }
 
     // Callback to open a conversation
     using OpenConversationCb = std::function<void(const std::string& peerHex)>;
@@ -22,6 +25,7 @@ private:
     void refreshList();
 
     LXMFManager* _lxmf = nullptr;
+    AnnounceManager* _am = nullptr;
     ScrollList _list;
     std::vector<std::string> _peerHexes;  // Parallel to list items
     unsigned long _lastRefresh = 0;

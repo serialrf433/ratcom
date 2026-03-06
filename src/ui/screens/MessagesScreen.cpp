@@ -1,5 +1,6 @@
 #include "MessagesScreen.h"
 #include "ui/Theme.h"
+#include "reticulum/AnnounceManager.h"
 
 void MessagesScreen::onEnter() {
     _previewCache.clear();
@@ -14,12 +15,20 @@ void MessagesScreen::refreshList() {
 
     const auto& convs = _lxmf->conversations();
     for (const auto& peerHex : convs) {
-        // Format: "xxxx:xxxx  (N unread)"
+        // Show node name if known, otherwise formatted hex
         std::string label;
-        if (peerHex.size() >= 8) {
-            label = peerHex.substr(0, 4) + ":" + peerHex.substr(4, 4);
-        } else {
-            label = peerHex;
+        if (_am) {
+            const DiscoveredNode* node = _am->findNodeByHex(peerHex);
+            if (node && !node->name.empty()) {
+                label = node->name;
+            }
+        }
+        if (label.empty()) {
+            if (peerHex.size() >= 8) {
+                label = peerHex.substr(0, 4) + ":" + peerHex.substr(4, 4);
+            } else {
+                label = peerHex;
+            }
         }
 
         int unread = _lxmf->unreadCount(peerHex);

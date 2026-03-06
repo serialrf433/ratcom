@@ -1,5 +1,6 @@
 #include "MessageView.h"
 #include "ui/Theme.h"
+#include "reticulum/AnnounceManager.h"
 #include <time.h>
 
 void MessageView::onEnter() {
@@ -98,12 +99,18 @@ void MessageView::render(M5Canvas& canvas) {
 
     int baseY = Theme::CONTENT_Y;
 
-    // Header: peer hash + back hint
+    // Header: node name or peer hash + back hint
     std::string header;
-    if (_peerHex.size() >= 8) {
-        header = _peerHex.substr(0, 4) + ":" + _peerHex.substr(4, 4);
-    } else {
-        header = _peerHex;
+    if (_am) {
+        const DiscoveredNode* node = _am->findNodeByHex(_peerHex);
+        if (node && !node->name.empty()) header = node->name;
+    }
+    if (header.empty()) {
+        if (_peerHex.size() >= 8) {
+            header = _peerHex.substr(0, 4) + ":" + _peerHex.substr(4, 4);
+        } else {
+            header = _peerHex;
+        }
     }
     canvas.setTextColor(Theme::PRIMARY);
     canvas.setTextSize(Theme::FONT_SIZE);

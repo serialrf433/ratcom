@@ -12,6 +12,7 @@ class FlashStore;
 struct DiscoveredNode {
     RNS::Bytes hash;
     std::string name;
+    std::string identityHex;
     int rssi = 0;
     float snr = 0;
     uint8_t hops = 0;
@@ -31,6 +32,7 @@ public:
 
     // Storage for contact persistence
     void setStorage(SDStore* sd, FlashStore* flash);
+    void setLocalDestHash(const RNS::Bytes& hash) { _localDestHash = hash; }
 
     // Save/load persisted contacts
     void saveContacts();
@@ -42,6 +44,7 @@ public:
 
     // Find node by hash
     const DiscoveredNode* findNode(const RNS::Bytes& hash) const;
+    const DiscoveredNode* findNodeByHex(const std::string& hexHash) const;
 
     // Manual contact add
     void addManualContact(const std::string& hexHash, const std::string& name);
@@ -60,5 +63,6 @@ private:
     std::vector<DiscoveredNode> _nodes;
     SDStore* _sd = nullptr;
     FlashStore* _flash = nullptr;
+    RNS::Bytes _localDestHash;
     static constexpr int MAX_NODES = 24;
 };

@@ -6,6 +6,8 @@
 #include <vector>
 #include <string>
 
+class AnnounceManager;
+
 class MessageView : public Screen {
 public:
     void render(M5Canvas& canvas) override;
@@ -14,6 +16,7 @@ public:
     void onEnter() override;
 
     void setLXMFManager(LXMFManager* lxmf) { _lxmf = lxmf; }
+    void setAnnounceManager(AnnounceManager* am) { _am = am; }
     void setPeerHex(const std::string& peerHex) { _peerHex = peerHex; }
 
     // Callback to return to messages list
@@ -31,6 +34,7 @@ private:
     };
 
     LXMFManager* _lxmf = nullptr;
+    AnnounceManager* _am = nullptr;
     std::string _peerHex;
     std::vector<LXMFMessage> _messages;
     std::vector<ChatLine> _chatLines;

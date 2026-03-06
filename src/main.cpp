@@ -383,6 +383,7 @@ void setup() {
     ui.render();
     announceManager = new AnnounceManager();
     announceManager->setStorage(&sdStore, &flash);
+    announceManager->setLocalDestHash(rns.destination().hash());
     announceManager->loadContacts();
     announceHandler = RNS::HAnnounceHandler(announceManager);
     RNS::Transport::register_announce_handler(announceHandler);
@@ -506,11 +507,13 @@ void setup() {
         else announceManager->unsaveNode(peerHex);
     });
     messagesScreen.setLXMFManager(&lxmf);
+    messagesScreen.setAnnounceManager(announceManager);
     messagesScreen.setOpenCallback([](const std::string& peerHex) {
         messageView.setPeerHex(peerHex);
         ui.setScreen(&messageView);
     });
     messageView.setLXMFManager(&lxmf);
+    messageView.setAnnounceManager(announceManager);
     messageView.setBackCallback([]() {
         ui.setScreen(&messagesScreen);
     });

@@ -22,19 +22,13 @@ bool LXMFManager::begin(ReticulumManager* rns, MessageStore* store) {
 }
 
 void LXMFManager::loop() {
-    // Process outgoing queue
-    while (!_outQueue.empty()) {
-        LXMFMessage& msg = _outQueue.front();
-        if (sendDirect(msg)) {
-            // Overwrite on-disk file (QUEUED → SENT or FAILED)
-            if (_store) {
-                _store->saveMessage(msg);
-            }
-            _outQueue.pop_front();
-        } else {
-            // Failed — leave in queue, retry later
-            break;
-        }
+    if (_outQueue.empty()) return;
+    LXMFMessage& msg = _outQueue.front();
+    if (sendDirect(msg)) {
+        Serial.printf("[LXMF] Queue drain: status=%s dest=%s\n",
+                      msg.statusStr(), msg.destHash.toHex().substr(0, 8).c_str());
+        if (_store) { _store->saveMessage(msg); }
+        _outQueue.pop_front();
     }
 }
 
@@ -77,10 +71,16 @@ bool LXMFManager::sendDirect(LXMFMessage& msg) {
     // Recall the recipient's identity from announce cache
     RNS::Identity recipientId = RNS::Identity::recall(msg.destHash);
     if (!recipientId) {
-        Serial.printf("[LXMF] No identity for %s — can't send\n",
-                      msg.destHash.toHex().substr(0, 8).c_str());
-        msg.status = LXMFStatus::FAILED;
-        return true;  // Remove from queue (can't resolve)
+        msg.retries++;
+        if (msg.retries >= 5) {
+            Serial.printf("[LXMF] recall failed for %s after %d retries — marking FAILED\n",
+                          msg.destHash.toHex().substr(0, 8).c_str(), msg.retries);
+            msg.status = LXMFStatus::FAILED;
+            return true;
+        }
+        Serial.printf("[LXMF] recall failed for %s (retry %d/5) — keeping queued\n",
+                      msg.destHash.toHex().substr(0, 8).c_str(), msg.retries);
+        return false;  // keep in queue, retry next loop
     }
 
     // Create outgoing destination

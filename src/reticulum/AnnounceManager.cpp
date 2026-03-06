@@ -75,6 +75,9 @@ void AnnounceManager::received_announce(
     const RNS::Identity& announced_identity,
     const RNS::Bytes& app_data)
 {
+    // Filter out own announces
+    if (_localDestHash.size() > 0 && destination_hash == _localDestHash) return;
+
     Serial.printf("[ANNOUNCE] From: %s", destination_hash.toHex().c_str());
 
     // Extract display name from app_data
@@ -90,11 +93,14 @@ void AnnounceManager::received_announce(
     }
     Serial.println();
 
+    std::string idHex = announced_identity.hexhash();
+
     // Check if already known
     for (auto& node : _nodes) {
         if (node.hash == destination_hash) {
             // Update existing (name already sanitized above)
             if (!name.empty()) node.name = name;
+            if (!idHex.empty()) node.identityHex = idHex;
             node.lastSeen = millis();
             node.hops = RNS::Transport::hops_to(destination_hash);
             // Re-save if this is a persisted contact
@@ -134,6 +140,7 @@ void AnnounceManager::received_announce(
     DiscoveredNode node;
     node.hash = destination_hash;
     node.name = name.empty() ? destination_hash.toHex().substr(0, 12) : name;
+    node.identityHex = idHex;
     node.lastSeen = millis();
     node.hops = RNS::Transport::hops_to(destination_hash);
     _nodes.push_back(node);
@@ -146,6 +153,11 @@ const DiscoveredNode* AnnounceManager::findNode(const RNS::Bytes& hash) const {
     for (const auto& node : _nodes) {
         if (node.hash == hash) return &node;
     }
+    return nullptr;
+}
+
+const DiscoveredNode* AnnounceManager::findNodeByHex(const std::string& hexHash) const {
+    for (const auto& n : _nodes) { if (n.hash.toHex() == hexHash) return &n; }
     return nullptr;
 }
 

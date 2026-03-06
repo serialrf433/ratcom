@@ -28,6 +28,7 @@ struct LXMFMessage {
     LXMFStatus status = LXMFStatus::DRAFT;
     bool incoming = false;
     bool read = false;          // Persistence: false = unread
+    int retries = 0;
     RNS::Bytes messageId;      // SHA-256 hash of full payload
 
     // === Wire format (opportunistic) ===
