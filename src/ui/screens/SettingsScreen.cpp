@@ -22,11 +22,11 @@ void SettingsScreen::buildMainMenu() {
 }
 
 static const char* detectPresetName(const UserSettings& s) {
-    if (s.loraSF == 9 && s.loraBW == 250000 && s.loraCR == 5 && s.loraTxPower == 14)
+    if (s.loraSF == 9 && s.loraBW == 125000 && s.loraCR == 5 && s.loraTxPower == 17)
         return "Balanced";
-    if (s.loraSF == 12 && s.loraBW == 125000 && s.loraCR == 8 && s.loraTxPower == 17)
+    if (s.loraSF == 12 && s.loraBW == 62500 && s.loraCR == 8 && s.loraTxPower == 22)
         return "Long Range";
-    if (s.loraSF == 7 && s.loraBW == 500000 && s.loraCR == 5 && s.loraTxPower == 10)
+    if (s.loraSF == 7 && s.loraBW == 250000 && s.loraCR == 5 && s.loraTxPower == 14)
         return "Fast";
     return "Custom";
 }
@@ -819,23 +819,23 @@ void SettingsScreen::applyRadioPreset(int preset) {
     auto& s = _config->settings();
 
     switch (preset) {
-        case 0:  // Balanced — SF9, BW250k, CR5, TX14
+        case 0:  // Balanced — SF9, BW125k, CR5, TX17
             s.loraSF = 9;
+            s.loraBW = 125000;
+            s.loraCR = 5;
+            s.loraTxPower = 17;
+            break;
+        case 1:  // Long Range — SF12, BW62.5k, CR8, TX22
+            s.loraSF = 12;
+            s.loraBW = 62500;
+            s.loraCR = 8;
+            s.loraTxPower = 22;
+            break;
+        case 2:  // Fast — SF7, BW250k, CR5, TX14
+            s.loraSF = 7;
             s.loraBW = 250000;
             s.loraCR = 5;
             s.loraTxPower = 14;
-            break;
-        case 1:  // Long Range — SF12, BW125k, CR8, TX17
-            s.loraSF = 12;
-            s.loraBW = 125000;
-            s.loraCR = 8;
-            s.loraTxPower = 17;
-            break;
-        case 2:  // Fast — SF7, BW500k, CR5, TX10
-            s.loraSF = 7;
-            s.loraBW = 500000;
-            s.loraCR = 5;
-            s.loraTxPower = 10;
             break;
     }
 

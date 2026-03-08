@@ -20,10 +20,10 @@
 #define LORA_DIO2_AS_RF_SWITCH  true
 #define LORA_TCXO_VOLTAGE       0x06   // MODE_TCXO_3_0V_6X — proven on Cap LoRa-1262
 #define LORA_DEFAULT_FREQ       915000000
-#define LORA_DEFAULT_BW         250000   // Balanced preset
+#define LORA_DEFAULT_BW         125000   // Balanced preset
 #define LORA_DEFAULT_SF         9
 #define LORA_DEFAULT_CR         5
-#define LORA_DEFAULT_TX_POWER   14       // Balanced preset
+#define LORA_DEFAULT_TX_POWER   17       // Balanced preset
 #define LORA_DEFAULT_PREAMBLE   18
 
 // --- Keyboard (TCA8418 via I2C) ---
