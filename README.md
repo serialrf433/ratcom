@@ -111,7 +111,7 @@ Connects to an existing WiFi network. Establishes outbound TCP connections to co
 **Setup**:
 1. Ctrl+S → WiFi → Mode → **STA**
 2. Enter your WiFi SSID and password
-3. Add TCP endpoints: e.g., `rns.ratspeak.net` port `4242`, auto-connect enabled
+3. Add TCP endpoints: e.g., `rns.ratspeak.org` port `4242`, auto-connect enabled
 4. Save — RatCom connects to your WiFi, then opens TCP links to the configured hosts
 
 TCP clients auto-reconnect every 10 seconds if the connection drops. Up to 4 simultaneous TCP connections supported.
