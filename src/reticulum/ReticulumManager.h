@@ -45,6 +45,7 @@ public:
     // Identity
     const RNS::Identity& identity() const { return _identity; }
     String identityHash() const;
+    String destinationHashStr() const;
 
     // Transport status
     bool isTransportActive() const { return _transportActive; }

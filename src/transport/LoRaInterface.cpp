@@ -40,10 +40,8 @@ void LoRaInterface::stop() {
 void LoRaInterface::send_outgoing(const RNS::Bytes& data) {
     if (!_online || !_radio) return;
 
-    // Build RNode-compatible 1-byte header:
-    //   Upper nibble: random sequence number (for split-packet tracking)
-    //   Lower nibble: flags (FLAG_SPLIT=0x01 if packet won't fit in single frame)
-    uint8_t header = (uint8_t)(random(256)) & RNODE_NIBBLE_SEQ;  // Random upper nibble, flags=0
+    // Build RNode-compatible 1-byte header
+    uint8_t header = (uint8_t)(random(256)) & RNODE_NIBBLE_SEQ;
 
     Serial.printf("[LORA_IF] TX: sending %d bytes, radio: SF%d BW%lu CR%d preamble=%ld freq=%lu txp=%d\n",
         data.size(),
@@ -55,8 +53,8 @@ void LoRaInterface::send_outgoing(const RNS::Bytes& data) {
         _radio->getTxPower());
 
     _radio->beginPacket();
-    _radio->write(header);                        // 1-byte RNode header
-    _radio->write(data.data(), data.size());      // Reticulum packet payload
+    _radio->write(header);
+    _radio->write(data.data(), data.size());
     bool sent = _radio->endPacket();
 
     if (sent) {
@@ -87,11 +85,9 @@ void LoRaInterface::loop() {
 
     int packetSize = _radio->parsePacket();
     if (packetSize > RNODE_HEADER_L) {
-        // parsePacket() already read the FIFO into packetBuffer() — copy from there
         uint8_t raw[MAX_PACKET_SIZE];
         memcpy(raw, _radio->packetBuffer(), packetSize);
 
-        // Strip the 1-byte RNode header, pass only the Reticulum payload
         uint8_t header = raw[0];
         int payloadSize = packetSize - RNODE_HEADER_L;
 
@@ -99,7 +95,6 @@ void LoRaInterface::loop() {
                       packetSize, header, payloadSize,
                       _radio->packetRssi(), _radio->packetSnr());
 
-        // Hex dump first 32 bytes for debugging interop
         Serial.printf("[LORA_IF] RX hex: ");
         for (int i = 0; i < packetSize && i < 32; i++) Serial.printf("%02X ", raw[i]);
         Serial.println();
@@ -108,10 +103,8 @@ void LoRaInterface::loop() {
         memcpy(buf.writable(payloadSize), raw + RNODE_HEADER_L, payloadSize);
         InterfaceImpl::handle_incoming(buf);
 
-        // Re-enter RX
         _radio->receive();
     } else if (packetSize > 0) {
-        // Packet too small (only header, no payload) — discard
         Serial.printf("[LORA_IF] RX runt packet (%d bytes), discarding\n", packetSize);
         _radio->receive();
     }

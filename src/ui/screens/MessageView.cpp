@@ -16,62 +16,51 @@ void MessageView::onEnter() {
 void MessageView::refreshMessages() {
     if (!_lxmf || _peerHex.empty()) return;
 
+    // Load last 20 messages (paginated)
     _messages = _lxmf->getMessages(_peerHex);
 
-    // Dedup: same content + timestamp → keep highest-status version
-    for (size_t i = 0; i < _messages.size(); i++) {
-        for (size_t j = i + 1; j < _messages.size(); ) {
-            if (_messages[i].timestamp == _messages[j].timestamp &&
-                _messages[i].content == _messages[j].content) {
-                if ((int)_messages[j].status > (int)_messages[i].status)
-                    _messages[i] = _messages[j];
-                _messages.erase(_messages.begin() + j);
-            } else {
-                j++;
-            }
-        }
-    }
-
     _lxmf->markRead(_peerHex);
+    if (_unreadCb) _unreadCb();
 
     // Build chat lines (IRC-style)
     _chatLines.clear();
     for (const auto& msg : _messages) {
         ChatLine line;
 
-        // Smart timestamp: real HH:MM if epoch, relative if uptime
+        // Smart timestamp: real HH:MM if epoch, relative if uptime (capped at 24h)
         char ts[16];
         double tsVal = msg.timestamp;
         if (tsVal > 1700000000) {
             time_t t = (time_t)tsVal;
             struct tm* tm = localtime(&t);
             snprintf(ts, sizeof(ts), "%02d:%02d", tm->tm_hour, tm->tm_min);
-        } else {
+        } else if (tsVal > 0 && (millis() / 1000) > (unsigned long)tsVal) {
             unsigned long ago = (millis() / 1000) - (unsigned long)tsVal;
             if (ago < 60) snprintf(ts, sizeof(ts), "%lus", ago);
             else if (ago < 3600) snprintf(ts, sizeof(ts), "%lum", ago / 60);
-            else snprintf(ts, sizeof(ts), "%luh", ago / 3600);
+            else if (ago < 86400) snprintf(ts, sizeof(ts), "%luh", ago / 3600);
+            else snprintf(ts, sizeof(ts), "--:--");
+        } else {
+            snprintf(ts, sizeof(ts), "--:--");
         }
 
         if (msg.incoming) {
-            // Sender name (short hash)
-            std::string sender = msg.sourceHash.toHex().substr(0, 4);
+            std::string sender = peerDisplayName();
             line.text = std::string(ts) + " " + sender + "> " + msg.content;
             line.color = Theme::PRIMARY;
         } else {
             line.text = std::string(ts) + " you> " + msg.content;
 
-            // Color indicates status — no text suffix needed
             switch (msg.status) {
                 case LXMFStatus::SENT:
                 case LXMFStatus::DELIVERED:
-                    line.color = Theme::PRIMARY;    // Green = confirmed
+                    line.color = Theme::PRIMARY;
                     break;
                 case LXMFStatus::FAILED:
-                    line.color = Theme::ERROR;      // Red = failed
+                    line.color = Theme::ERROR;
                     break;
-                default:  // QUEUED, SENDING, DRAFT
-                    line.color = Theme::WARNING;    // Yellow = pending
+                default:
+                    line.color = Theme::WARNING;
                     break;
             }
         }
@@ -85,15 +74,16 @@ void MessageView::refreshMessages() {
     for (const auto& cl : _chatLines) {
         totalWrappedLines += ((int)cl.text.size() / maxCharsPerLine) + 1;
     }
-    int visibleLines = (Theme::CONTENT_H - 24) / Theme::CHAR_H;  // Minus header + input
+    int visibleLines = (Theme::CONTENT_H - 24) / Theme::CHAR_H;
     _scrollOffset = std::max(0, totalWrappedLines - visibleLines);
 
     _lastRefresh = millis();
+    _needsRefresh = false;
 }
 
 void MessageView::render(M5Canvas& canvas) {
-    // Auto-refresh every 3 seconds
-    if (millis() - _lastRefresh > 10000) {
+    // Event-driven refresh instead of timer-based
+    if (_needsRefresh) {
         refreshMessages();
     }
 
@@ -124,13 +114,11 @@ void MessageView::render(M5Canvas& canvas) {
 
     // Chat area
     int chatY = baseY + 11;
-    int chatH = Theme::CONTENT_H - 24;  // Leave room for input
+    int chatH = Theme::CONTENT_H - 24;
     int maxCharsPerLine = Theme::CONTENT_W / Theme::CHAR_W;
-    int lineY = chatY;
     int currentLine = 0;
 
     for (const auto& cl : _chatLines) {
-        // Word-wrap the line
         int lineLen = cl.text.size();
         int pos = 0;
         while (pos < lineLen) {
@@ -139,7 +127,7 @@ void MessageView::render(M5Canvas& canvas) {
 
             if (currentLine >= _scrollOffset) {
                 int drawY = chatY + (currentLine - _scrollOffset) * Theme::CHAR_H;
-                if (drawY + Theme::CHAR_H > chatY + chatH) break;  // Past visible area
+                if (drawY + Theme::CHAR_H > chatY + chatH) break;
 
                 canvas.setTextColor(cl.color);
                 std::string segment = cl.text.substr(pos, chars);
@@ -161,7 +149,7 @@ void MessageView::render(M5Canvas& canvas) {
 
 bool MessageView::handleKey(const KeyEvent& event) {
     // Escape = back to messages list
-    if (event.character == 27) {  // ESC
+    if (event.character == 27) {
         if (_backCb) _backCb();
         return true;
     }
@@ -174,19 +162,128 @@ bool MessageView::handleKey(const KeyEvent& event) {
     return false;
 }
 
+std::string MessageView::peerDisplayName() const {
+    if (_am) {
+        const DiscoveredNode* node = _am->findNodeByHex(_peerHex);
+        if (node && !node->name.empty()) return node->name;
+    }
+    return _peerHex.size() >= 4 ? _peerHex.substr(0, 4) : _peerHex;
+}
+
+void MessageView::notifyNewMessage(const LXMFMessage& msg) {
+    std::string senderHex = msg.incoming ?
+        msg.sourceHash.toHex() : msg.destHash.toHex();
+
+    // Check if this message is for the peer we're currently viewing
+    bool match = (senderHex == _peerHex);
+    if (!match && _peerHex.size() < senderHex.size()) {
+        match = (senderHex.substr(0, _peerHex.size()) == _peerHex);
+    }
+
+    if (!match) {
+        _needsRefresh = true;
+        return;
+    }
+
+    // Add directly to chat lines (don't wait for async disk write)
+    ChatLine line;
+    char ts[16];
+    double tsVal = msg.timestamp;
+    if (tsVal > 1700000000) {
+        time_t t = (time_t)tsVal;
+        struct tm* tm = localtime(&t);
+        snprintf(ts, sizeof(ts), "%02d:%02d", tm->tm_hour, tm->tm_min);
+    } else if (tsVal > 0 && (millis() / 1000) > (unsigned long)tsVal) {
+        unsigned long ago = (millis() / 1000) - (unsigned long)tsVal;
+        if (ago < 60) snprintf(ts, sizeof(ts), "%lus", ago);
+        else if (ago < 3600) snprintf(ts, sizeof(ts), "%lum", ago / 60);
+        else if (ago < 86400) snprintf(ts, sizeof(ts), "%luh", ago / 3600);
+        else snprintf(ts, sizeof(ts), "--:--");
+    } else {
+        snprintf(ts, sizeof(ts), "--:--");
+    }
+
+    if (msg.incoming) {
+        std::string sender = peerDisplayName();
+        line.text = std::string(ts) + " " + sender + "> " + msg.content;
+        line.color = Theme::PRIMARY;
+    } else {
+        line.text = std::string(ts) + " you> " + msg.content;
+        line.color = Theme::WARNING;
+    }
+    _chatLines.push_back(line);
+
+    // Auto-scroll to bottom
+    int maxCharsPerLine = Theme::CONTENT_W / Theme::CHAR_W;
+    int totalWrappedLines = 0;
+    for (const auto& cl : _chatLines) {
+        totalWrappedLines += ((int)cl.text.size() / maxCharsPerLine) + 1;
+    }
+    int visibleLines = (Theme::CONTENT_H - 24) / Theme::CHAR_H;
+    _scrollOffset = std::max(0, totalWrappedLines - visibleLines);
+
+    if (msg.incoming && _lxmf) {
+        _lxmf->markRead(_peerHex);
+        if (_unreadCb) _unreadCb();
+    }
+}
+
+void MessageView::notifyStatusChange(const std::string& peerHex, double timestamp, LXMFStatus status) {
+    if (peerHex != _peerHex) return;
+
+    // Update the most recent pending outgoing chat line
+    for (int i = _chatLines.size() - 1; i >= 0; i--) {
+        auto& line = _chatLines[i];
+        if (line.text.find("you>") != std::string::npos && line.color == Theme::WARNING) {
+            switch (status) {
+                case LXMFStatus::SENT:
+                case LXMFStatus::DELIVERED:
+                    line.color = Theme::PRIMARY;
+                    break;
+                case LXMFStatus::FAILED:
+                    line.color = Theme::ERROR;
+                    break;
+                default:
+                    break;
+            }
+            break;
+        }
+    }
+}
+
 void MessageView::sendCurrentInput() {
     if (!_lxmf || _peerHex.empty()) return;
 
     std::string text = _input.getText();
     if (text.empty()) return;
 
-    // Convert peer hex to Bytes
     RNS::Bytes destHash;
     destHash.assignHex(_peerHex.c_str());
 
     _lxmf->sendMessage(destHash, text);
     _input.clear();
 
-    // Refresh to show sent message
-    refreshMessages();
+    // Add sent message to display immediately (async save hasn't hit disk yet)
+    char ts[16];
+    time_t now = time(nullptr);
+    if (now > 1700000000) {
+        struct tm* tm = localtime(&now);
+        snprintf(ts, sizeof(ts), "%02d:%02d", tm->tm_hour, tm->tm_min);
+    } else {
+        snprintf(ts, sizeof(ts), "0s");
+    }
+
+    ChatLine line;
+    line.text = std::string(ts) + " you> " + text;
+    line.color = Theme::WARNING;  // Yellow = queued/pending
+    _chatLines.push_back(line);
+
+    // Auto-scroll to bottom
+    int maxCharsPerLine = Theme::CONTENT_W / Theme::CHAR_W;
+    int totalWrappedLines = 0;
+    for (const auto& cl : _chatLines) {
+        totalWrappedLines += ((int)cl.text.size() / maxCharsPerLine) + 1;
+    }
+    int visibleLines = (Theme::CONTENT_H - 24) / Theme::CHAR_H;
+    _scrollOffset = std::max(0, totalWrappedLines - visibleLines);
 }

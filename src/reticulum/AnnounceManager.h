@@ -38,6 +38,10 @@ public:
     void saveContacts();
     void loadContacts();
 
+    // Deferred save: flush only if dirty (call from main loop every 30s)
+    void flushContacts();
+    bool isContactsDirty() const { return _contactsDirty; }
+
     // Node list access
     const std::vector<DiscoveredNode>& nodes() const { return _nodes; }
     int nodeCount() const { return _nodes.size(); }
@@ -64,5 +68,6 @@ private:
     SDStore* _sd = nullptr;
     FlashStore* _flash = nullptr;
     RNS::Bytes _localDestHash;
+    bool _contactsDirty = false;
     static constexpr int MAX_NODES = 24;
 };

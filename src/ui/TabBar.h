@@ -6,6 +6,7 @@ class TabBar {
 public:
     void render(M5Canvas& canvas);
 
+    void setDirtyFlag(bool* flag) { _dirty = flag; }
     int getActiveTab() const { return _activeTab; }
     void setActiveTab(int tab);
     void cycleTab(int direction);
@@ -21,4 +22,5 @@ private:
     int _activeTab = 0;
     int _unreadCounts[4] = {0};
     static constexpr const char* TAB_LABELS[4] = {"Home", "Msgs", "Nodes", "Setup"};
+    bool* _dirty = nullptr;
 };

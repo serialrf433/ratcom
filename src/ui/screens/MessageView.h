@@ -18,14 +18,24 @@ public:
     void setLXMFManager(LXMFManager* lxmf) { _lxmf = lxmf; }
     void setAnnounceManager(AnnounceManager* am) { _am = am; }
     void setPeerHex(const std::string& peerHex) { _peerHex = peerHex; }
+    void notifyNewMessage() { _needsRefresh = true; }
+    void notifyNewMessage(const LXMFMessage& msg);
+
+    // Status callback — update chat line color when send completes
+    void notifyStatusChange(const std::string& peerHex, double timestamp, LXMFStatus status);
 
     // Callback to return to messages list
     using BackCallback = std::function<void()>;
     void setBackCallback(BackCallback cb) { _backCb = cb; }
 
+    // Callback to update unread badge after markRead
+    using UnreadUpdateCb = std::function<void()>;
+    void setUnreadUpdateCallback(UnreadUpdateCb cb) { _unreadCb = cb; }
+
 private:
     void refreshMessages();
     void sendCurrentInput();
+    std::string peerDisplayName() const;
 
     // Cached display lines
     struct ChatLine {
@@ -42,4 +52,6 @@ private:
     TextInput _input;
     unsigned long _lastRefresh = 0;
     BackCallback _backCb;
+    UnreadUpdateCb _unreadCb;
+    bool _needsRefresh = false;
 };

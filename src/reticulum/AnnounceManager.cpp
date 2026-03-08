@@ -103,9 +103,9 @@ void AnnounceManager::received_announce(
             if (!idHex.empty()) node.identityHex = idHex;
             node.lastSeen = millis();
             node.hops = RNS::Transport::hops_to(destination_hash);
-            // Re-save if this is a persisted contact
+            // Mark dirty for deferred save instead of writing immediately
             if (node.saved) {
-                saveContact(node);
+                _contactsDirty = true;
             }
             return;
         }
@@ -157,7 +157,13 @@ const DiscoveredNode* AnnounceManager::findNode(const RNS::Bytes& hash) const {
 }
 
 const DiscoveredNode* AnnounceManager::findNodeByHex(const std::string& hexHash) const {
-    for (const auto& n : _nodes) { if (n.hash.toHex() == hexHash) return &n; }
+    for (const auto& n : _nodes) {
+        std::string nodeHex = n.hash.toHex();
+        if (nodeHex == hexHash) return &n;
+        // Support prefix matching for truncated conversation hashes (16-char dirs)
+        if (hexHash.length() < nodeHex.length() &&
+            nodeHex.substr(0, hexHash.length()) == hexHash) return &n;
+    }
     return nullptr;
 }
 
@@ -379,4 +385,10 @@ void AnnounceManager::saveContacts() {
             saveContact(node);
         }
     }
+    _contactsDirty = false;
+}
+
+void AnnounceManager::flushContacts() {
+    if (!_contactsDirty) return;
+    saveContacts();
 }

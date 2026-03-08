@@ -160,6 +160,7 @@ void SX1262::waitOnBusy() {
     if (_busy != -1) {
         while (digitalRead(_busy) == HIGH) {
             if (millis() >= (t + 100)) break;
+            yield();
         }
     }
 }

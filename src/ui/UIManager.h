@@ -34,6 +34,13 @@ public:
     // Handle key event — routes to current screen
     bool handleKey(const KeyEvent& event);
 
+    // Dirty flag management
+    void markStatusDirty() { _statusDirty = true; }
+    void markContentDirty() { _contentDirty = true; }
+    void markTabDirty() { _tabDirty = true; }
+    void markAllDirty() { _statusDirty = _contentDirty = _tabDirty = true; }
+    bool isDirty() const { return _statusDirty || _contentDirty || _tabDirty; }
+
 private:
     M5Canvas _canvas;
     StatusBar _statusBar;
@@ -42,4 +49,7 @@ private:
     Screen* _overlay = nullptr;
     bool _needsRender = true;
     bool _bootMode = false;
+    bool _statusDirty = true;
+    bool _contentDirty = true;
+    bool _tabDirty = true;
 };

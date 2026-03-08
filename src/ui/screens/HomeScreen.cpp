@@ -26,12 +26,12 @@ void HomeScreen::render(M5Canvas& canvas) {
     int lineH = Theme::CHAR_H + 3;
     canvas.setTextSize(Theme::FONT_SIZE);
 
-    // Identity hash
+    // LXMF destination hash (what other devices use to reach you)
     canvas.setTextColor(Theme::PRIMARY);
     canvas.setCursor(4, y);
-    canvas.print("ID: ");
+    canvas.print("LXMF: ");
     if (_rns) {
-        canvas.print(_rns->identityHash());
+        canvas.print(_rns->destinationHashStr());
     } else {
         canvas.print("not initialized");
     }

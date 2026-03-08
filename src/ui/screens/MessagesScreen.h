@@ -21,6 +21,8 @@ public:
     using OpenConversationCb = std::function<void(const std::string& peerHex)>;
     void setOpenCallback(OpenConversationCb cb) { _openCb = cb; }
 
+    void notifyNewMessage() { _needsRefresh = true; }
+
 private:
     void refreshList();
 
@@ -30,5 +32,5 @@ private:
     std::vector<std::string> _peerHexes;  // Parallel to list items
     unsigned long _lastRefresh = 0;
     OpenConversationCb _openCb;
-    std::map<std::string, std::string> _previewCache;
+    bool _needsRefresh = false;
 };

@@ -21,4 +21,6 @@ protected:
 
 private:
     SX1262* _radio;
+    bool _txPending = false;
+    RNS::Bytes _txData;
 };

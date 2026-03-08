@@ -242,7 +242,15 @@ void ReticulumManager::loop() {
 String ReticulumManager::identityHash() const {
     if (!_identity) return "unknown";
     std::string hex = _identity.hexhash();
-    // Format as xxxx:xxxx:xxxx
+    if (hex.length() >= 12) {
+        return String((hex.substr(0, 4) + ":" + hex.substr(4, 4) + ":" + hex.substr(8, 4)).c_str());
+    }
+    return String(hex.c_str());
+}
+
+String ReticulumManager::destinationHashStr() const {
+    if (!_destination) return "unknown";
+    std::string hex = _destination.hash().toHex();
     if (hex.length() >= 12) {
         return String((hex.substr(0, 4) + ":" + hex.substr(4, 4) + ":" + hex.substr(8, 4)).c_str());
     }

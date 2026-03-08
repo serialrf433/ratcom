@@ -56,7 +56,7 @@ static bool mpReadFloat64(const uint8_t* data, size_t len, size_t& pos, double& 
     return true;
 }
 
-// Read MsgPack string or bin (LXMF uses bin for title/content)
+// Read MsgPack string or bin (accept both str and bin types for interop)
 static bool mpReadString(const uint8_t* data, size_t len, size_t& pos, std::string& str) {
     if (pos >= len) return false;
     uint8_t b = data[pos];
@@ -78,7 +78,7 @@ static bool mpReadString(const uint8_t* data, size_t len, size_t& pos, std::stri
         slen = ((size_t)data[pos] << 8) | data[pos + 1];
         pos += 2;
     } else if (b == 0xC4) {
-        // bin8
+        // bin8 (LXMF may encode title/content as bin)
         pos++;
         if (pos >= len) return false;
         slen = data[pos++];
@@ -236,11 +236,10 @@ std::vector<uint8_t> LXMFMessage::packContent(double timestamp, const std::strin
     buf.reserve(32 + content.size() + title.size());
 
     // fixarray(4): [timestamp, title, content, fields] — LXMF spec order
-    // Title and content packed as bin type (LXMF stores them as bytes)
     buf.push_back(0x94);
     mpPackFloat64(buf, timestamp);
-    mpPackBin(buf, title);
-    mpPackBin(buf, content);
+    mpPackString(buf, title);
+    mpPackString(buf, content);
     // empty fixmap for fields
     buf.push_back(0x80);
 
@@ -248,41 +247,28 @@ std::vector<uint8_t> LXMFMessage::packContent(double timestamp, const std::strin
 }
 
 std::vector<uint8_t> LXMFMessage::packFull(const RNS::Identity& signingIdentity) const {
-    // Pack content
     std::vector<uint8_t> packed = packContent(timestamp, content, title);
 
-    // Validate hashes
     if (sourceHash.size() < 16 || destHash.size() < 16) {
         Serial.println("[LXMF] ERROR: sourceHash or destHash too short, cannot pack");
         return {};
     }
 
-    // hashed_part = dest_hash(16) + source_hash(16) + packed_content
-    std::vector<uint8_t> hashedPart;
-    hashedPart.reserve(16 + 16 + packed.size());
-    hashedPart.insert(hashedPart.end(), destHash.data(), destHash.data() + 16);
-    hashedPart.insert(hashedPart.end(), sourceHash.data(), sourceHash.data() + 16);
-    hashedPart.insert(hashedPart.end(), packed.begin(), packed.end());
+    // Sign: dest_hash || source_hash || packed_content (LXMF spec)
+    std::vector<uint8_t> signable;
+    signable.reserve(32 + packed.size());
+    signable.insert(signable.end(), destHash.data(), destHash.data() + 16);
+    signable.insert(signable.end(), sourceHash.data(), sourceHash.data() + 16);
+    signable.insert(signable.end(), packed.begin(), packed.end());
 
-    // message_hash = full_hash(hashed_part)
-    RNS::Bytes hashedPartBytes(hashedPart.data(), hashedPart.size());
-    RNS::Bytes messageHash = RNS::Identity::full_hash(hashedPartBytes);
-
-    // signed_part = hashed_part + message_hash
-    std::vector<uint8_t> signedPart;
-    signedPart.reserve(hashedPart.size() + messageHash.size());
-    signedPart.insert(signedPart.end(), hashedPart.begin(), hashedPart.end());
-    signedPart.insert(signedPart.end(), messageHash.data(), messageHash.data() + messageHash.size());
-
-    // Sign
-    RNS::Bytes signedPartBytes(signedPart.data(), signedPart.size());
-    RNS::Bytes sig = signingIdentity.sign(signedPartBytes);
+    RNS::Bytes signableBytes(signable.data(), signable.size());
+    RNS::Bytes sig = signingIdentity.sign(signableBytes);
     if (sig.size() < 64) {
         Serial.println("[LXMF] ERROR: signing failed, cannot pack");
         return {};
     }
 
-    // Wire format (opportunistic): source_hash(16) + signature(64) + packed_content
+    // Wire (opportunistic SINGLE): [src_hash:16][signature:64][packed_content]
     std::vector<uint8_t> payload;
     payload.reserve(16 + 64 + packed.size());
     payload.insert(payload.end(), sourceHash.data(), sourceHash.data() + 16);

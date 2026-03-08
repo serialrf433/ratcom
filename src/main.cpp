@@ -1,5 +1,5 @@
 // =============================================================================
-// RatCom v1.2.2 — Main Entry Point
+// RatCom v1.5.1 — Main Entry Point
 // C1-C7: Radio, Keyboard, Display, Reticulum, Nodes, WiFi, LXMF
 // =============================================================================
 
@@ -86,17 +86,27 @@ bool bootLoopRecovery = false;
 bool wifiSTAStarted = false;
 bool wifiSTAConnected = false;
 bool tcpClientsCreated = false;
+
+// --- Timing state (millis-based throttling) ---
+unsigned long lastRNS = 0;
 unsigned long lastRender = 0;
 unsigned long lastAutoAnnounce = 0;
-constexpr unsigned long RENDER_INTERVAL_MS = 50;  // 20 FPS
-constexpr unsigned long ANNOUNCE_INTERVAL_MS = 5 * 60 * 1000;  // 5 minutes
 unsigned long lastHeartbeat = 0;
-constexpr unsigned long HEARTBEAT_INTERVAL_MS = 5000;
+unsigned long lastStatusUpdate = 0;
+unsigned long lastContactSave = 0;
 unsigned long loopCycleStart = 0;
 unsigned long maxLoopTime = 0;
 
-// Forward declarations
-static void announceWithName();
+// --- Intervals ---
+constexpr unsigned long RNS_INTERVAL_MS = 5;          // 200 Hz (matches Ratdeck)
+constexpr unsigned long RENDER_INTERVAL_MS = 50;       // 20 FPS
+constexpr unsigned long STATUS_UPDATE_MS = 1000;       // 1 Hz status bar
+constexpr unsigned long CONTACT_SAVE_MS = 30000;       // 30s contact batch save
+constexpr unsigned long ANNOUNCE_INTERVAL_MS = 120000; // 2 minutes
+constexpr unsigned long HEARTBEAT_INTERVAL_MS = 5000;
+
+// Power-aware RNS interval
+unsigned long rnsInterval = RNS_INTERVAL_MS;
 
 // =============================================================================
 // Hotkey callbacks
@@ -150,7 +160,6 @@ void onHotkeyDiag() {
         if (devErr & 0x40) Serial.println("  *** PLL LOCK FAILED ***");
         Serial.printf("Current RSSI: %d dBm\n", radio.currentRssi());
 
-        // Raw register dump for cross-device comparison
         Serial.println("--- SX1262 Register Dump ---");
         Serial.printf("  0x0740 (SyncWordMSB): 0x%02X\n", radio.readRegister(0x0740));
         Serial.printf("  0x0741 (SyncWordLSB): 0x%02X\n", radio.readRegister(0x0741));
@@ -165,12 +174,12 @@ void onHotkeyDiag() {
     Serial.printf("Flash: %lu/%lu bytes\n",
                   (unsigned long)LittleFS.usedBytes(),
                   (unsigned long)LittleFS.totalBytes());
+    Serial.printf("WriteQ pending: %d\n", messageStore.writeQueue().drainCount());
     Serial.printf("Uptime: %lu s\n", millis() / 1000);
     Serial.println("=======================");
 }
 
 // Ctrl+R: Continuous RSSI sampling for 5 seconds
-// Use this while another device is transmitting to verify RX path hears RF
 volatile bool rssiMonitorActive = false;
 
 void onHotkeyRssiMonitor() {
@@ -198,9 +207,9 @@ void onHotkeyRssiMonitor() {
 
 void onHotkeyRadioTest() {
     Serial.println("[TEST] Sending raw radio test packet...");
-    uint8_t header = 0xA0;  // Fixed test header
+    uint8_t header = 0xA0;
     const char* testPayload = "RATPUTER_TEST_1234567890";
-    size_t totalLen = 1 + strlen(testPayload);  // header + payload
+    size_t totalLen = 1 + strlen(testPayload);
 
     radio.beginPacket();
     radio.write(header);
@@ -209,15 +218,13 @@ void onHotkeyRadioTest() {
 
     Serial.printf("[TEST] TX %s (%d bytes)\n", ok ? "OK" : "FAILED", (int)totalLen);
 
-    // FIFO readback verification — read back what was in the buffer
-    // Note: after TX, FIFO pointer is reset; read from offset 0
     uint8_t verify[32] = {0};
     radio.readBuffer(verify, totalLen);
     Serial.printf("[TEST] FIFO verify: ");
     for (size_t i = 0; i < totalLen; i++) Serial.printf("%02X ", verify[i]);
     Serial.println();
 
-    radio.receive();  // Return to RX
+    radio.receive();
 }
 
 // =============================================================================
@@ -253,7 +260,7 @@ void setup() {
 
     Serial.println();
     Serial.println("=================================");
-    Serial.printf("  Ratputer v%s\n", RATPUTER_VERSION_STRING);
+    Serial.printf("  RatCom v%s\n", RATPUTER_VERSION_STRING);
     Serial.println("  M5Stack Cardputer Adv");
     Serial.println("=================================");
 
@@ -353,13 +360,11 @@ void setup() {
     bootScreen.setProgress(0.65f, "Checking SD card...");
     ui.render();
     if (sdStore.begin(&loraSPI, SD_CS)) {
-        // Ensure all SD directories exist
         sdStore.ensureDir("/ratcom");
         sdStore.ensureDir("/ratcom/messages");
         sdStore.ensureDir("/ratcom/contacts");
         sdStore.ensureDir("/ratcom/identity");
 
-        // Serial wipe command: send "WIPE" within 500ms to wipe SD
         Serial.println("[SD] Send 'WIPE' now to wipe SD card (500ms window)...");
         unsigned long wipeDeadline = millis() + 500;
         String cmd;
@@ -382,7 +387,7 @@ void setup() {
     // Initialize Reticulum
     bootScreen.setProgress(0.7f, "Starting Reticulum...");
     ui.render();
-    rns.setSDStore(&sdStore);  // SD identity backup (must set before begin)
+    rns.setSDStore(&sdStore);
     if (rns.begin(&radio, &flash)) {
         Serial.printf("[BOOT] Identity: %s\n", rns.identityHash().c_str());
         bootScreen.setProgress(0.9f, "Reticulum active");
@@ -400,8 +405,20 @@ void setup() {
     lxmf.setMessageCallback([](const LXMFMessage& msg) {
         Serial.printf("[LXMF] New message from %s\n", msg.sourceHash.toHex().substr(0, 8).c_str());
         ui.tabBar().setUnreadCount(TabBar::TAB_MSGS, lxmf.unreadCount());
+        ui.markContentDirty();
+        ui.markTabDirty();
+        messagesScreen.notifyNewMessage();
+        messageView.notifyNewMessage(msg);
         audio.playMessage();
     });
+
+    // Status callback — update UI when send completes (SENT/FAILED)
+    lxmf.setStatusCallback([](const std::string& peerHex, double timestamp, LXMFStatus status) {
+        messageView.notifyStatusChange(peerHex, timestamp, status);
+        ui.markContentDirty();
+    });
+
+    // Unread counts load lazily on first MessagesScreen open (deferred from boot)
 
     // Register announce handler
     bootScreen.setProgress(0.93f, "Starting discovery...");
@@ -416,22 +433,20 @@ void setup() {
     // Load user config (SD primary, flash fallback)
     userConfig.load(sdStore, flash);
 
+    // Seed default Ratspeak TCP hub if no connections configured
+    if (userConfig.settings().tcpConnections.empty()) {
+        TCPEndpoint ep;
+        ep.host = "rns.ratspeak.org";
+        ep.port = 4242;
+        ep.autoConnect = true;
+        userConfig.settings().tcpConnections.push_back(ep);
+        Serial.println("[CONFIG] Default TCP hub: rns.ratspeak.org:4242");
+    }
+
     // Boot loop recovery: force WiFi OFF to break crash cycle
     if (bootLoopRecovery) {
         userConfig.settings().wifiMode = RAT_WIFI_OFF;
         Serial.println("[BOOT] WiFi forced OFF (boot loop recovery)");
-    }
-
-    // Force radio to BoardConfig defaults (override stale saved config)
-    // Also disable WiFi to reduce RF noise floor during LoRa debug
-    {
-        auto& s = userConfig.settings();
-        s.loraFrequency = LORA_DEFAULT_FREQ;
-        s.loraSF        = LORA_DEFAULT_SF;
-        s.loraBW        = LORA_DEFAULT_BW;
-        s.loraCR        = LORA_DEFAULT_CR;
-        s.loraTxPower   = LORA_DEFAULT_TX_POWER;
-        s.wifiMode      = RAT_WIFI_OFF;
     }
 
     // Apply radio settings
@@ -485,9 +500,7 @@ void setup() {
         Serial.println("[WIFI] Disabled by config");
     }
 
-    // BLE disabled — stub consumes ~50KB heap for no functionality.
-    // Re-enable in v1.1 when Sideband protocol is implemented.
-    // ble.begin();
+    // BLE disabled
     Serial.println("[BLE] Disabled (stub — v1.1)");
 
     // Initialize power manager + audio
@@ -517,7 +530,6 @@ void setup() {
     homeScreen.setAnnounceCallback([]() { announceWithName(); });
     nodesScreen.setAnnounceManager(announceManager);
     nodesScreen.setNodeSelectedCallback([](const std::string& peerHex) {
-        // Open conversation with selected node
         messageView.setPeerHex(peerHex);
         ui.tabBar().setActiveTab(TabBar::TAB_MSGS);
         ui.setScreen(&messageView);
@@ -537,6 +549,10 @@ void setup() {
     messageView.setBackCallback([]() {
         ui.setScreen(&messagesScreen);
     });
+    messageView.setUnreadUpdateCallback([]() {
+        ui.tabBar().setUnreadCount(TabBar::TAB_MSGS, lxmf.unreadCount());
+        ui.markTabDirty();
+    });
 
     settingsScreen.setUserConfig(&userConfig);
     settingsScreen.setFlashStore(&flash);
@@ -547,7 +563,7 @@ void setup() {
     settingsScreen.setWiFi(wifiImpl);
     settingsScreen.setTCPClients(&tcpClients);
     settingsScreen.setRNS(&rns);
-    settingsScreen.setIdentityHash(rns.identityHash());
+    settingsScreen.setIdentityHash(rns.destinationHashStr());
 
     tabScreens[TabBar::TAB_HOME]  = &homeScreen;
     tabScreens[TabBar::TAB_MSGS]  = &messagesScreen;
@@ -592,33 +608,38 @@ void setup() {
         }
     }
 
+    // Initialize timing
+    unsigned long now = millis();
+    lastRNS = now;
+    lastRender = now;
+    lastStatusUpdate = now;
+    lastContactSave = now;
+    loopCycleStart = now;
+
     Serial.println("[BOOT] RatCom ready");
 }
 
 // =============================================================================
-// Main Loop
+// Main Loop — Throttled, non-blocking
 // =============================================================================
 
 void loop() {
+    unsigned long now = millis();
     M5Cardputer.update();
 
-    // Keyboard polling
+    // 1. Input (always, no throttle — responsiveness critical)
     keyboard.update();
     if (keyboard.hasEvent()) {
         const KeyEvent& evt = keyboard.getEvent();
-        power.activity();  // Wake on keypress
+        power.activity();
 
-        // Help overlay intercepts all keys when visible
         if (helpOverlay.isVisible()) {
             helpOverlay.handleKey(evt);
             ui.setOverlay(helpOverlay.isVisible() ? &helpOverlay : nullptr);
         }
-        // Ctrl+hotkeys first
         else if (!hotkeys.process(evt)) {
-            // Screen gets the key next
             bool consumed = ui.handleKey(evt);
 
-            // Tab cycling: ,=left /=right (only if screen didn't consume)
             if (!consumed && !evt.ctrl) {
                 if (evt.character == ',') {
                     ui.tabBar().cycleTab(-1);
@@ -634,37 +655,38 @@ void loop() {
         }
     }
 
-    // Reticulum loop (handles radio RX via LoRaInterface internally)
-    rns.loop();
+    // 2. Reticulum + radio (throttled — 200Hz active, 20Hz screen off)
+    if (now - lastRNS >= rnsInterval) {
+        lastRNS = now;
+        rns.loop();
+    }
 
-    // Auto-announce every 5 minutes
-    if (bootComplete && millis() - lastAutoAnnounce >= ANNOUNCE_INTERVAL_MS) {
-        lastAutoAnnounce = millis();
-        announceWithName();
+    // 3. LXMF outgoing queue (every loop — cheap if empty)
+    lxmf.loop();
+
+    // 4. Auto-announce (2 minutes)
+    if (bootComplete && now - lastAutoAnnounce >= ANNOUNCE_INTERVAL_MS) {
+        lastAutoAnnounce = now;
+        rns.announce();
+        ui.statusBar().flashAnnounce();
         Serial.println("[AUTO] Periodic announce");
     }
 
-    // LXMF outgoing queue
-    lxmf.loop();
-
-    // WiFi STA non-blocking connection handler
+    // 5. WiFi STA non-blocking connection handler
     if (wifiSTAStarted) {
         bool connected = (WiFi.status() == WL_CONNECTED);
         if (connected && !wifiSTAConnected) {
             wifiSTAConnected = true;
             Serial.printf("[WIFI] STA connected: %s\n", WiFi.localIP().toString().c_str());
 
-            // Start NTP time sync with user's UTC offset
             {
                 int8_t off = userConfig.settings().utcOffset;
-                // POSIX TZ sign is inverted: UTC-5 → "UTC5"
                 char tz[16];
                 snprintf(tz, sizeof(tz), "UTC%d", -off);
                 configTzTime(tz, "pool.ntp.org", "time.nist.gov");
                 Serial.printf("[NTP] Time sync started (UTC%+d, TZ=%s)\n", off, tz);
             }
 
-            // Create TCP clients once on first connection
             if (!tcpClientsCreated) {
                 tcpClientsCreated = true;
                 for (auto& ep : userConfig.settings().tcpConnections) {
@@ -686,34 +708,49 @@ void loop() {
         }
     }
 
-    // WiFi / TCP loop
+    // 6. TCP transport (frame-limited per client)
     if (wifiImpl) wifiImpl->loop();
     for (auto* tcp : tcpClients) {
         tcp->loop();
-        yield();
     }
-    yield();
 
-    // Power management
+    // 7. Deferred contact save (every 30s)
+    if (now - lastContactSave >= CONTACT_SAVE_MS) {
+        lastContactSave = now;
+        if (announceManager) announceManager->flushContacts();
+    }
+
+    // 8. Power management
     power.loop();
 
-    // Render at 20 FPS
-    unsigned long now = millis();
+    // 9. Power-aware RNS throttle
+    if (power.state() == PowerManager::SCREEN_OFF) {
+        rnsInterval = 50;  // 20 Hz when screen off
+    } else {
+        rnsInterval = RNS_INTERVAL_MS;  // 200 Hz when active
+    }
+
+    // 10. Render (20 FPS, skip if screen off or dimmed-frozen)
     if (now - lastRender >= RENDER_INTERVAL_MS) {
         lastRender = now;
-        if (power.isScreenOn()) {
+        if (power.isScreenOn() && power.state() != PowerManager::DIMMED) {
+            // Status bar needs periodic refresh for battery + announce flash
+            if (now - lastStatusUpdate >= STATUS_UPDATE_MS) {
+                lastStatusUpdate = now;
+                ui.markStatusDirty();
+            }
             ui.render();
         }
     }
 
-    // Periodic heartbeat for crash diagnosis
+    // 11. Heartbeat (5s)
     {
-        unsigned long cycleTime = millis() - loopCycleStart;
+        unsigned long cycleTime = now - loopCycleStart;
         if (cycleTime > maxLoopTime) maxLoopTime = cycleTime;
 
-        if (millis() - lastHeartbeat >= HEARTBEAT_INTERVAL_MS) {
-            lastHeartbeat = millis();
-            Serial.printf("[HEART] heap=%lu min=%lu stack=%lu loop=%lums nodes=%d paths=%d links=%d lxmfQ=%d up=%lus\n",
+        if (now - lastHeartbeat >= HEARTBEAT_INTERVAL_MS) {
+            lastHeartbeat = now;
+            Serial.printf("[HEART] heap=%lu min=%lu stack=%lu loop=%lums nodes=%d paths=%d links=%d lxmfQ=%d writeQ=%d up=%lus\n",
                           (unsigned long)ESP.getFreeHeap(),
                           (unsigned long)ESP.getMinFreeHeap(),
                           (unsigned long)uxTaskGetStackHighWaterMark(NULL),
@@ -722,11 +759,12 @@ void loop() {
                           (int)rns.pathCount(),
                           (int)rns.linkCount(),
                           lxmf.queuedCount(),
+                          messageStore.writeQueue().drainCount(),
                           millis() / 1000);
             maxLoopTime = 0;
         }
     }
-    loopCycleStart = millis();
+    loopCycleStart = now;
 
-    delay(5);
+    yield();
 }

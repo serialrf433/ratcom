@@ -14,6 +14,7 @@
 class LXMFManager {
 public:
     using MessageCallback = std::function<void(const LXMFMessage&)>;
+    using StatusCallback = std::function<void(const std::string& peerHex, double timestamp, LXMFStatus status)>;
 
     bool begin(ReticulumManager* rns, MessageStore* store);
     void loop();
@@ -24,14 +25,17 @@ public:
     // Incoming message callback
     void setMessageCallback(MessageCallback cb) { _onMessage = cb; }
 
+    // Status callback (fires when send completes with SENT/FAILED)
+    void setStatusCallback(StatusCallback cb) { _statusCb = cb; }
+
     // Queue info
     int queuedCount() const { return _outQueue.size(); }
 
     // Get all conversations (destination hashes with messages)
     const std::vector<std::string>& conversations() const;
 
-    // Get messages for a conversation
-    std::vector<LXMFMessage> getMessages(const std::string& peerHex) const;
+    // Get messages for a conversation (paginated, last N messages)
+    std::vector<LXMFMessage> getMessages(const std::string& peerHex, int limit = 20) const;
 
     // Unread count for a peer (or total)
     int unreadCount(const std::string& peerHex = "") const;
@@ -50,6 +54,7 @@ private:
     ReticulumManager* _rns = nullptr;
     MessageStore* _store = nullptr;
     MessageCallback _onMessage;
+    StatusCallback _statusCb;
     std::deque<LXMFMessage> _outQueue;
 
     // Unread tracking (lazy-loaded on first access)
@@ -60,6 +65,8 @@ private:
     // Deduplication: recently seen message IDs
     std::set<std::string> _seenMessageIds;
     static constexpr int MAX_SEEN_IDS = 100;
+
+    unsigned long _lastRetryMs = 0;
 
     static LXMFManager* _instance;
 };

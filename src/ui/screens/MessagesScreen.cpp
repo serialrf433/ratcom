@@ -3,7 +3,6 @@
 #include "reticulum/AnnounceManager.h"
 
 void MessagesScreen::onEnter() {
-    _previewCache.clear();
     refreshList();
 }
 
@@ -36,23 +35,6 @@ void MessagesScreen::refreshList() {
             label += " [" + std::to_string(unread) + "]";
         }
 
-        // Get last message preview (cached to avoid heavy I/O)
-        auto it = _previewCache.find(peerHex);
-        if (it == _previewCache.end()) {
-            auto msgs = _lxmf->getMessages(peerHex);
-            std::string preview;
-            if (!msgs.empty()) {
-                const auto& last = msgs.back();
-                preview = last.content.substr(0, 20);
-                if (last.content.size() > 20) preview += "...";
-            }
-            _previewCache[peerHex] = preview;
-            it = _previewCache.find(peerHex);
-        }
-        if (!it->second.empty()) {
-            label += " " + it->second;
-        }
-
         _list.addItem(label);
         _peerHexes.push_back(peerHex);
     }
@@ -62,11 +44,12 @@ void MessagesScreen::refreshList() {
     }
 
     _lastRefresh = millis();
+    _needsRefresh = false;
 }
 
 void MessagesScreen::render(M5Canvas& canvas) {
-    // Auto-refresh every 5 seconds
-    if (millis() - _lastRefresh > 15000) {
+    // Event-driven refresh instead of timer-based
+    if (_needsRefresh) {
         refreshList();
     }
 

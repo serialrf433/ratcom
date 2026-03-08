@@ -60,7 +60,7 @@ PlatformIO automatically downloads the ESP32-S3 toolchain, Arduino framework, an
 
 ```bash
 # Clone
-git clone https://github.com/defidude/RatCom.git
+git clone https://github.com/ratspeak/ratcom.git
 cd RatCom
 
 # Build (first build takes ~2 min to download toolchain + deps)
@@ -250,7 +250,7 @@ The firmware logs extensively to serial at 115200 baud. Every subsystem prints t
 
 ```
 =================================
-  RatCom v1.0.0
+  RatCom v1.5.1
   M5Stack Cardputer Adv
 =================================
 [RADIO] SX1262 online at 915 MHz
@@ -351,7 +351,9 @@ RatCom/
 
 ## Current Status
 
-**v1.0.0** — Working on hardware. Boots stable, LoRa TX/RX confirmed, TCP transport to `rns.beleth.net` operational.
+**v1.5.1** — Bug fix release: NTP time sync, LXMF retry logic, message status persistence.
+
+**v1.5.0** — Working on hardware. Boots stable, LoRa TX/RX confirmed, TCP transport operational, LXMF messaging with unread badges and chronological ordering.
 
 | Subsystem | Status |
 |-----------|--------|

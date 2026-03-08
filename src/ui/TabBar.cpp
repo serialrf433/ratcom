@@ -6,16 +6,19 @@ constexpr const char* TabBar::TAB_LABELS[4];
 void TabBar::setActiveTab(int tab) {
     if (tab >= 0 && tab < Theme::TAB_COUNT) {
         _activeTab = tab;
+        if (_dirty) *_dirty = true;
     }
 }
 
 void TabBar::cycleTab(int direction) {
     _activeTab = (_activeTab + direction + Theme::TAB_COUNT) % Theme::TAB_COUNT;
+    if (_dirty) *_dirty = true;
 }
 
 void TabBar::setUnreadCount(int tab, int count) {
     if (tab >= 0 && tab < Theme::TAB_COUNT) {
         _unreadCounts[tab] = count;
+        if (_dirty) *_dirty = true;
     }
 }
 

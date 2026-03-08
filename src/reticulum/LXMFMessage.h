@@ -30,6 +30,7 @@ struct LXMFMessage {
     bool read = false;          // Persistence: false = unread
     int retries = 0;
     RNS::Bytes messageId;      // SHA-256 hash of full payload
+    uint32_t receiveCounter = 0; // Monotonic receive order counter
 
     // === Wire format (opportunistic) ===
     // source_hash(16) + signature(64) + msgpack([timestamp, title, content, fields_map])
