@@ -1,99 +1,69 @@
-# RatCom
+<div align="center">
 
-Standalone [Reticulum](https://reticulum.network/) + [LXMF](https://github.com/markqvist/LXMF) encrypted messenger, built for the [M5Stack Cardputer Adv](https://docs.m5stack.com/en/core/M5Cardputer%20Adv).
+# ratcom
 
-Not an RNode. Not a gateway. A fully self-contained key to Reticulum, with a keyboard, screen, and no host computer required.
+**Encrypted mesh messenger for the M5Stack Cardputer**
 
-## What RatCom Does
+<table><tr>
+<td><img src="assets/card1.JPG" width="100%" alt="RatCom with LoRa antenna attached, showing boot screen"></td>
+<td><img src="assets/card2.JPG" width="100%" alt="RatCom running, showing the messaging interface"></td>
+</tr></table>
 
-RatCom turns a small $50 Cardputer Adv into a Reticulum mesh node with encrypted LXMF messaging using Ed25519 signatures, support for unlimited swappable identities, and both WiFi/TCP and LoRa connectivity. It can connect remotely over WiFi to TCP peers such as `rns.ratspeak.org:4242`, store messages and contacts on flash and SD card with automatic backup, and lets you configure everything directly on-device with no config files or host tools.
+A $50 handheld that runs [Reticulum](https://reticulum.network/) — no phone, no internet, no infrastructure required.
 
-## Features
+</div>
 
-| Category | Details |
-|----------|---------|
-| **Connectivity** | Internet-capable over TCP/WiFi and LoRa-capable over radio |
-| **Messaging** | LXMF encrypted messages, Ed25519 signatures, delivery tracking, and per-conversation storage |
-| **WiFi Modes** | AP mode or STA mode for TCP client connections to remote nodes; not concurrent |
-| **Identity** | Manage and swap between unlimited identities |
-| **Storage** | Store messages and contacts on flash and SD card with automatic backup |
-| **Configuration** | Full on-device setup with no config files or host tools |
-| **Planned** | BLE Sideband (v1.1 stub), GNSS (pins defined), OTA updates (partition reserved) |
+---
 
-## Prerequisites
+RatCom turns an [M5Stack Cardputer Adv](https://docs.m5stack.com/en/core/M5Cardputer%20Adv) into a self-contained encrypted mesh node. It's not an RNode and it's not a gateway — it's a complete Reticulum instance with a keyboard and a screen that fits in your pocket.
 
-| Requirement | Version | Install |
-|-------------|---------|---------|
-| **Python** | 3.12+ | [python.org](https://www.python.org/downloads/) or your package manager |
-| **PlatformIO Core** | 6.x | `pip install platformio` |
-| **Git** | any | Your package manager |
-| **USB driver** | — | None needed on macOS/Linux (ESP32-S3 USB-Serial/JTAG is built-in) |
+You get end-to-end encrypted [LXMF](https://github.com/markqvist/LXMF) messaging over LoRa, WiFi TCP bridging to the wider Reticulum network, contact management, multiple swappable identities, and configurable radio — all without ever touching a config file.
 
-PlatformIO automatically downloads the ESP32-S3 toolchain, Arduino framework, and all library dependencies on first build.
+## Get one
 
-## Build & Flash
+1. Buy an **M5Stack Cardputer Adv** (~$50 — [M5Stack](https://shop.m5stack.com/), [AliExpress](https://aliexpress.com), or Amazon)
+2. Attach a **915 MHz LoRa antenna** (SMA, included with some kits)
+3. Flash the firmware
 
-The fastest way to flash RatCom is by visiting our [in-browser flasher](https://ratspeak.org/download.html), otherwise:
+### Flash it
+
+The easiest way is the **[web flasher](https://ratspeak.org/download.html)** — plug in USB, click flash, done.
+
+To build from source:
 
 ```bash
-# Clone
-git clone https://github.com/ratspeak/ratcom.git
-cd RatCom
-
-# Build (first build takes ~2 min to download toolchain + deps)
-python3 -m platformio run -e ratputer_915
-
-# Flash (plug in Cardputer Adv via USB-C while in download mode - holding G0 before plugging in)
-python3 -m platformio run -e ratputer_915 -t upload --upload-port /dev/cu.usbmodem*
+git clone https://github.com/ratspeak/ratcom
+cd ratcom
+pip install platformio
+python3 -m platformio run -e ratputer_915 -t upload
 ```
 
-> If `pio` is not on your PATH after install, use `python3 -m platformio` everywhere.
+First build takes a couple minutes while PlatformIO pulls the ESP32-S3 toolchain. After that it's fast.
 
-### Alternative: esptool (more reliable)
+> If upload fails at 921600 baud, use esptool directly at 460800. See [docs/BUILDING.md](docs/BUILDING.md) for details.
 
-PlatformIO's default 921600 baud sometimes fails over USB-Serial/JTAG. esptool at 460800 is more reliable:
+## Using it
 
-```bash
-python3 -m esptool --chip esp32s3 --port /dev/cu.usbmodem* --baud 460800 \
-    --before default-reset --after hard-reset \
-    write-flash -z 0x10000 .pio/build/ratputer_915/firmware.bin
-```
+On first boot, RatCom generates a Reticulum identity and drops you on the Home tab. Your LXMF address (a 32-character hex string) is what you share with people so they can reach you.
 
-See [docs/BUILDING.md](docs/BUILDING.md) for merged binaries, build flags, partition table, and CI/CD details.
+**Tabs:** Home, Messages, Nodes, Setup — navigate with `,` and `/` keys.
 
-## Keyboard & Hotkeys
+**Sending a message:** Select a node from the Nodes tab, press Enter, type, press Enter to send. Messages are encrypted end-to-end with Ed25519 signatures.
 
-### Hotkeys (Ctrl+key)
+**Radio presets** (Settings → Radio):
+- **Long Range** — SF12, 62.5 kHz, 22 dBm. Maximum distance, very slow.
+- **Balanced** — SF9, 125 kHz, 17 dBm. Good default.
+- **Fast** — SF7, 250 kHz, 14 dBm. Short range, quick transfers.
 
-| Shortcut | Action |
-|----------|--------|
-| Ctrl+H | Toggle help overlay (shows all hotkeys on screen) |
-| Ctrl+M | Jump to Messages tab |
-| Ctrl+N | Compose new message |
-| Ctrl+S | Jump to Settings tab |
-| Ctrl+A | Force announce to network (immediate, doesn't wait for 5-min timer) |
-| Ctrl+D | Dump full diagnostics to serial (identity, radio regs, heap, flash usage) |
-| Ctrl+T | Send radio test packet (`0xA0` header + `RATPUTER_TEST_1234567890`, FIFO readback) |
-| Ctrl+R | RSSI monitor — continuous sampling for 5 seconds (use while another device transmits) |
+All radio parameters are individually tunable. Changes apply immediately, no reboot.
 
-### Navigation
+### WiFi bridging
 
-| Key | Action |
-|-----|--------|
-| `;` | Scroll up / previous item |
-| `.` | Scroll down / next item |
-| `,` | Previous tab (left) |
-| `/` | Next tab (right) |
-| Enter | Select / confirm / send message |
-| Esc | Back / cancel |
-| Backspace | Delete character in text input |
-| Aa (double-tap) | Caps lock |
+This is the killer feature for desktop users. RatCom can bridge your laptop to the LoRa mesh:
 
-### AP Mode
-
-Creates a WiFi hotspot named `ratcom-XXXX` (password: `ratspeak`). Runs a TCP server on port 4242 with HDLC framing (0x7E delimiters, 0x7D byte stuffing).
-
-**Bridge to desktop Reticulum**: Connect your laptop to the `ratcom-XXXX` network, then add to your Reticulum config (`~/.reticulum/config`):
+1. Set WiFi to **AP mode** (creates `ratcom-XXXX`, password: `ratspeak`)
+2. Connect your laptop to that network
+3. Add to your Reticulum config:
 
 ```ini
 [[ratcom]]
@@ -102,110 +72,21 @@ Creates a WiFi hotspot named `ratcom-XXXX` (password: `ratspeak`). Runs a TCP se
   target_port = 4242
 ```
 
-Now your desktop `rnsd` can reach the LoRa mesh through RatCom.
+Now your desktop Reticulum instance can reach the LoRa mesh through RatCom's radio.
 
-### STA Mode
+Or use **STA mode** to connect RatCom to your existing WiFi and reach remote nodes like `rns.ratspeak.org:4242`.
 
-Connects to an existing WiFi network. Establishes outbound TCP connections to configured Reticulum endpoints.
+## Docs
 
-**Setup**:
-1. Ctrl+S → WiFi → Mode → **STA**
-2. Enter your WiFi SSID and password
-3. Add TCP endpoints: e.g., `rns.ratspeak.org` port `4242`, auto-connect enabled
-4. Save — RatCom connects to your WiFi, then opens TCP links to the configured hosts
+The detailed stuff lives in [`docs/`](docs/):
 
-TCP clients auto-reconnect every 10 seconds if the connection drops. Up to 4 simultaneous TCP connections supported.
-
-## LoRa Radio
-
-### Default Configuration
-
-| Parameter | Default | Range |
-|-----------|---------|-------|
-| Frequency | 915 MHz | Hardware-dependent (SX1262 supports 150–960 MHz) |
-| Spreading Factor | SF7 | SF5–SF12 (higher = longer range, slower) |
-| Bandwidth | 500 kHz | 7.8 kHz – 500 kHz |
-| Coding Rate | 4/5 | 4/5 – 4/8 (higher = more error correction) |
-| TX Power | 10 dBm | 2–22 dBm |
-| Preamble | 18 symbols | Configurable |
-| Sync Word | 0x1424 | Reticulum standard |
-| Max Packet | 255 bytes | SX1262 hardware limit (254 bytes payload + 1-byte header) |
-
-All parameters configurable via Settings → Radio. Changes take effect immediately and persist across reboots.
-
-## SD Card (*RECOMMENDED)
-
-Optional microSD card (FAT32, 32GB max suggested). Provides backup storage and extended capacity beyond the 1.875 MB LittleFS partition.
-
-### Directory Structure (auto-created on first boot)
-
-```
-/ratcom/
-├── config/
-│   └── user.json           Runtime settings (radio, WiFi, display, audio)
-├── messages/
-│   └── <peer_hex>/         Per-conversation message history (JSON)
-├── contacts/               Discovered Reticulum nodes
-└── identity/
-    └── identity.key        Ed25519 keypair backup
-```
-
-## Serial Monitor & Debugging
-
-```bash
-python3 -m platformio device monitor -b 115200
-```
-
-The firmware logs extensively to serial at 115200 baud. Every subsystem prints tagged messages: `[BOOT]`, `[RADIO]`, `[WIFI]`, `[LXMF]`, `[LORA_IF]`, `[SD]`, etc.
-
-## Dependencies
-
-All automatically managed by PlatformIO — no manual installation needed:
-
-| Library | Version | Purpose |
-|---------|---------|---------|
-| [microReticulum](https://github.com/attermann/microReticulum) | git HEAD | Reticulum protocol stack (C++ port) — Identity, Transport, Packet, Link |
-| [Crypto](https://github.com/attermann/Crypto) | git HEAD | Ed25519, X25519, AES-128, SHA-256, HMAC |
-| [ArduinoJson](https://github.com/bblanchon/ArduinoJson) | ^7.4.2 | JSON serialization for UserConfig and message storage |
-| [M5Unified](https://github.com/m5stack/M5Unified) | latest | Hardware abstraction — display, battery, power, buttons |
-| [M5GFX](https://github.com/m5stack/M5GFX) | latest | Display rendering, M5Canvas sprite double-buffering |
-| [M5Cardputer](https://github.com/m5stack/M5Cardputer) | latest | TCA8418 keyboard driver, Cardputer-specific hardware |
-
-## Project Structure
-
-```
-RatCom/
-├── src/
-│   ├── main.cpp                 Entry point: 24-step setup(), 20 FPS loop()
-│   ├── config/                  BoardConfig.h (pins), Config.h (compile-time), UserConfig.* (runtime JSON)
-│   ├── radio/                   SX1262.* (register-level driver), RadioConstants.h
-│   ├── input/                   Keyboard.* (TCA8418), HotkeyManager.* (Ctrl+key dispatch)
-│   ├── ui/                      UIManager, StatusBar, TabBar, Theme, Screen base class
-│   │   ├── screens/             BootScreen, HomeScreen, MessagesScreen, MessageView, NodesScreen, SettingsScreen, HelpOverlay
-│   │   ├── widgets/             ScrollList, TextInput, ProgressBar
-│   │   └── assets/              BootLogo.h
-│   ├── reticulum/               ReticulumManager, AnnounceManager, LXMFManager, LXMFMessage
-│   ├── transport/               LoRaInterface, WiFiInterface, TCPClientInterface, BLEStub
-│   ├── storage/                 FlashStore (LittleFS), SDStore (FAT32), MessageStore (dual)
-│   ├── power/                   PowerManager (dim/off/wake)
-│   └── audio/                   AudioNotify (boot, message, announce, error sounds)
-├── docs/                        BUILDING, PINMAP, TROUBLESHOOTING, DEVELOPMENT, ARCHITECTURE, QUICKSTART, HOTKEYS
-├── platformio.ini               Build configuration (single env: ratputer_915)
-├── partitions_8MB_ota.csv       Flash partition table
-└── .github/workflows/build.yml  CI: build on push, release on tag
-```
-
-## Documentation
-
-| Document | Contents |
-|----------|----------|
-| [Quick Start](docs/QUICKSTART.md) | First build, first boot, navigation, WiFi setup, SD card |
-| [Building](docs/BUILDING.md) | Build commands, flashing (PlatformIO + esptool), merged binaries, CI/CD, build flags |
-| [Pin Map](docs/PINMAP.md) | Full GPIO assignments — LoRa SPI, SD card, keyboard I2C, GNSS UART, display, audio |
-| [Hotkeys](docs/HOTKEYS.md) | Complete keyboard reference — hotkeys, navigation, text input, serial diagnostics |
-| [Architecture](docs/ARCHITECTURE.md) | Layer diagram, directory tree, design decisions (radio, storage, WiFi, boot recovery) |
-| [Development](docs/DEVELOPMENT.md) | How to add screens/hotkeys/settings/transports, init sequence, main loop, LXMF wire format |
-| [Troubleshooting](docs/TROUBLESHOOTING.md) | Radio (TCXO, IRQ latch, PA ramp), build (USB mode, baud rate), boot loop, storage, WiFi |
+- **[Quick Start](docs/QUICKSTART.md)** — first build, first boot, first message
+- [Building](docs/BUILDING.md) — build flags, esptool, merged binaries, CI
+- [Architecture](docs/ARCHITECTURE.md) — layer diagram, design decisions
+- [Development](docs/DEVELOPMENT.md) — adding screens, transports, settings
+- [Hotkeys](docs/HOTKEYS.md) — full keyboard reference
+- [Pin Map](docs/PINMAP.md) — GPIO assignments
+- [Troubleshooting](docs/TROUBLESHOOTING.md) — radio, build, boot, storage
 
 ## License
 
