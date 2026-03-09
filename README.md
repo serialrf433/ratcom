@@ -8,8 +8,6 @@
 
 <sub>[▶ YouTube: Reticulum Standalone - T-Deck & Cardputer Adv](https://www.youtube.com/watch?v=F6I6fkMPxgI)</sub>
 
-A $50 handheld that runs [Reticulum](https://reticulum.network/) — no phone, no internet, no infrastructure required.
-
 </div>
 
 ---
