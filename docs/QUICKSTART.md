@@ -120,7 +120,7 @@ Two RatComs on the same LoRa settings will discover each other automatically:
 4. Select the node → opens a conversation in Messages
 5. Type a message and press Enter
 
-Both devices must use the same frequency, spreading factor, bandwidth, and coding rate. The defaults (915 MHz, SF7, BW 500kHz, CR 4/5) work out of the box.
+Both devices must use the same frequency, spreading factor, bandwidth, and coding rate. The defaults (915 MHz, SF9, BW 125 kHz, CR 4/5) work out of the box.
 
 ## Connecting to a Desktop Reticulum Instance
 

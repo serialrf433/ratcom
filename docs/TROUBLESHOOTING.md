@@ -135,7 +135,7 @@ On first boot with a new SD card, the `/ratcom/` directory tree doesn't exist.
 ### RatCom TX/RX verification (QA Round 9)
 
 - **RatCom RX confirmed**: Received Heltec V3 RNode announce at -38 dBm, SNR 13.0
-- **RatCom TX confirmed**: All SX1262 registers verified correct (SF7, BW 500kHz, CR 4/5, sync 0x1424, CRC on)
+- **RatCom TX confirmed**: All SX1262 registers verified correct (SF9, BW 125 kHz, CR 4/5, sync 0x1424, CRC on)
 - **Heltec V3 RNode receive path**: Has never decoded a single LoRa packet from any source. Shows RatCom RF as interference (-50 to -81 dBm) but can't decode. This is a Heltec issue, not RatCom.
 
 ### Debugging RF with RSSI Monitor

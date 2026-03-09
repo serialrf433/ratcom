@@ -42,9 +42,9 @@ void SettingsScreen::buildRadioMenu() {
     _list.addItem(buf);
 
     // Presets (items 1-3)
-    _list.addItem("[Balanced: SF9/250k]");
-    _list.addItem("[Long Range: SF12/125k]");
-    _list.addItem("[Fast: SF7/500k]");
+    _list.addItem("[Balanced: SF9/125k]");
+    _list.addItem("[Long Range: SF12/62.5k]");
+    _list.addItem("[Fast: SF7/250k]");
 
     // Editable fields (items 4-8)
     snprintf(buf, sizeof(buf), "Frequency: %lu Hz", (unsigned long)s.loraFrequency);

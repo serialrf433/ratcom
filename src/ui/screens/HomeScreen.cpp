@@ -3,11 +3,11 @@
 #include "config/Config.h"
 
 static const char* detectPresetName(const UserSettings& s) {
-    if (s.loraSF == 9 && s.loraBW == 250000 && s.loraCR == 5 && s.loraTxPower == 14)
+    if (s.loraSF == 9 && s.loraBW == 125000 && s.loraCR == 5 && s.loraTxPower == 17)
         return "Balanced";
-    if (s.loraSF == 12 && s.loraBW == 125000 && s.loraCR == 8 && s.loraTxPower == 17)
+    if (s.loraSF == 12 && s.loraBW == 62500 && s.loraCR == 8 && s.loraTxPower == 22)
         return "Long Range";
-    if (s.loraSF == 7 && s.loraBW == 500000 && s.loraCR == 5 && s.loraTxPower == 10)
+    if (s.loraSF == 7 && s.loraBW == 250000 && s.loraCR == 5 && s.loraTxPower == 14)
         return "Fast";
     return "Custom";
 }
