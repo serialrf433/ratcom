@@ -134,12 +134,7 @@ void AnnounceManager::received_announce(
     const RNS::Identity& announced_identity,
     const RNS::Bytes& app_data)
 {
-    // Filter out own announces
-    if (_localDestHash.size() > 0 && destination_hash == _localDestHash) return;
-
-    Serial.printf("[ANNOUNCE] From: %s", destination_hash.toHex().c_str());
-
-    // Extract display name from app_data
+    // Extract display name from app_data (do this before filtering so name cache works)
     std::string name;
     if (app_data.size() > 0) {
         std::string rawName = extractMsgPackName(app_data.data(), app_data.size());
@@ -152,34 +147,56 @@ void AnnounceManager::received_announce(
             }
             if (isText) {
                 rawName = app_data.toString();
+            } else {
+                Serial.printf("[ANNOUNCE] Unknown app_data format (%d bytes): ", (int)app_data.size());
+                for (size_t i = 0; i < std::min((size_t)32, app_data.size()); i++) {
+                    Serial.printf("%02X ", app_data.data()[i]);
+                }
+                Serial.println();
             }
-        }
-        if (rawName.empty() && app_data.size() > 0) {
-            Serial.printf("[ANNOUNCE] Unknown app_data format (%d bytes): ", (int)app_data.size());
-            for (size_t i = 0; i < std::min((size_t)32, app_data.size()); i++) {
-                Serial.printf("%02X ", app_data.data()[i]);
-            }
-            Serial.println();
         }
         name = sanitizeName(rawName);
-        Serial.printf(" name=\"%s\"", name.c_str());
     }
-    Serial.println();
 
-    std::string idHex = announced_identity.hexhash();
+    // Filter out own announces
+    if (_localDestHash.size() > 0 && destination_hash == _localDestHash) return;
 
+    // Layer 3: Global announce rate limit — cap application-layer processing
+    {
+        unsigned long now = millis();
+        if (now - _globalAnnounceWindowStart >= 1000) {
+            _globalAnnounceWindowStart = now;
+            _globalAnnounceCount = 0;
+        }
+        if (++_globalAnnounceCount > MAX_GLOBAL_ANNOUNCES_PER_SEC) return;
+    }
+
+    std::string destHex = destination_hash.toHex();
+    Serial.printf("[ANNOUNCE] From: %s name=\"%s\"\n", destHex.c_str(), name.c_str());
+
+    // Update name cache for persistence across reboots
+    if (!name.empty()) {
+        auto it = _nameCache.find(destHex);
+        if (it == _nameCache.end() || it->second != name) {
+            _nameCache[destHex] = name;
+            _nameCacheDirty = true;
+        }
+    }
+
+    // Null identity guard — Identity::recall() can fail after cull
+    std::string idHex = announced_identity ? announced_identity.hexhash() : "";
+
+    unsigned long now = millis();
     // Check if already known
     for (auto& node : _nodes) {
         if (node.hash == destination_hash) {
-            // Update existing (name already sanitized above)
+            // Rate-limit updates for existing nodes
+            if (now - node.lastSeen < ANNOUNCE_MIN_INTERVAL_MS) return;
             if (!name.empty()) node.name = name;
             if (!idHex.empty()) node.identityHex = idHex;
-            node.lastSeen = millis();
+            node.lastSeen = now;
             node.hops = RNS::Transport::hops_to(destination_hash);
-            // Mark dirty for deferred save instead of writing immediately
-            if (node.saved) {
-                _contactsDirty = true;
-            }
+            if (node.saved) _contactsDirty = true;
             return;
         }
     }
@@ -187,7 +204,6 @@ void AnnounceManager::received_announce(
     // Add new node
     if ((int)_nodes.size() >= MAX_NODES) {
         evictStale();
-        // If still full, remove highest-hop unsaved node (break ties by oldest)
         if ((int)_nodes.size() >= MAX_NODES) {
             uint8_t maxHops = 0;
             unsigned long oldest = ULONG_MAX;
@@ -201,18 +217,10 @@ void AnnounceManager::received_announce(
                     evictIdx = i;
                 }
             }
-            if (evictIdx >= 0) {
-                _nodes.erase(_nodes.begin() + evictIdx);
-            }
-            // If all nodes are saved, can't evict — skip adding new node
+            if (evictIdx >= 0) _nodes.erase(_nodes.begin() + evictIdx);
         }
     }
-
-    // If still at capacity (all saved), drop announce
-    if ((int)_nodes.size() >= MAX_NODES) {
-        Serial.println("[ANNOUNCE] Node list full (all saved), dropping announce");
-        return;
-    }
+    if ((int)_nodes.size() >= MAX_NODES) return;
 
     DiscoveredNode node;
     node.hash = destination_hash;
@@ -221,9 +229,6 @@ void AnnounceManager::received_announce(
     node.lastSeen = millis();
     node.hops = RNS::Transport::hops_to(destination_hash);
     _nodes.push_back(node);
-
-    Serial.printf("[ANNOUNCE] Added node %s (%d total)\n",
-                  node.name.c_str(), (int)_nodes.size());
 }
 
 const DiscoveredNode* AnnounceManager::findNode(const RNS::Bytes& hash) const {
@@ -307,8 +312,10 @@ void AnnounceManager::evictStale(unsigned long maxAgeMs) {
 
 void AnnounceManager::clearAll() {
     _nodes.clear();
+    _nameCache.clear();
     _contactsDirty = false;
-    Serial.println("[ANNOUNCE] Cleared all nodes");
+    _nameCacheDirty = false;
+    Serial.println("[ANNOUNCE] Cleared all nodes and name cache");
 }
 
 void AnnounceManager::saveContact(const DiscoveredNode& node) {
@@ -471,7 +478,61 @@ void AnnounceManager::saveContacts() {
     _contactsDirty = false;
 }
 
-void AnnounceManager::flushContacts() {
-    if (!_contactsDirty) return;
-    saveContacts();
+void AnnounceManager::loop() {
+    unsigned long now = millis();
+    if (_contactsDirty && now - _lastContactSave >= CONTACT_SAVE_INTERVAL_MS) {
+        _contactsDirty = false;
+        _lastContactSave = now;
+        saveContacts();
+        Serial.println("[ANNOUNCE] Deferred contact save complete");
+    }
+    if (_nameCacheDirty && now - _lastContactSave >= CONTACT_SAVE_INTERVAL_MS) {
+        _nameCacheDirty = false;
+        saveNameCache();
+    }
+}
+
+std::string AnnounceManager::lookupName(const std::string& hexHash) const {
+    // Check live nodes first
+    const DiscoveredNode* node = findNodeByHex(hexHash);
+    if (node && !node->name.empty()) return node->name;
+    // Fall back to cached names
+    auto it = _nameCache.find(hexHash);
+    if (it != _nameCache.end()) return it->second;
+    return "";
+}
+
+void AnnounceManager::saveNameCache() {
+    JsonDocument doc;
+    for (auto& kv : _nameCache) {
+        doc[kv.first] = kv.second;
+    }
+    String json;
+    serializeJson(doc, json);
+    if (_sd && _sd->isReady()) {
+        _sd->ensureDir(SD_PATH_CONFIG_DIR);
+        _sd->writeString("/ratcom/config/names.json", json);
+    }
+    if (_flash && _flash->isReady()) {
+        _flash->ensureDir("/config");
+        _flash->writeString("/config/names.json", json);
+    }
+    Serial.printf("[ANNOUNCE] Name cache saved (%d entries)\n", (int)_nameCache.size());
+}
+
+void AnnounceManager::loadNameCache() {
+    String json;
+    if (_sd && _sd->isReady()) {
+        json = _sd->readString("/ratcom/config/names.json");
+    }
+    if (json.isEmpty() && _flash && _flash->isReady()) {
+        json = _flash->readString("/config/names.json");
+    }
+    if (json.isEmpty()) return;
+    JsonDocument doc;
+    if (deserializeJson(doc, json)) return;
+    for (JsonPair kv : doc.as<JsonObject>()) {
+        _nameCache[kv.key().c_str()] = kv.value().as<std::string>();
+    }
+    Serial.printf("[ANNOUNCE] Name cache loaded (%d entries)\n", (int)_nameCache.size());
 }

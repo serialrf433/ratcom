@@ -103,6 +103,24 @@ bool ReticulumManager::begin(SX1262* radio, FlashStore* flash) {
     RNS::Utilities::OS::register_filesystem(fs);
     Serial.println("[RNS] Filesystem registered");
 
+    // Restore routing tables and known destinations from SD if missing on flash
+    if (_sd && _sd->isReady()) {
+        static const char* files[] = {"/destination_table", "/packet_hashlist", "/known_destinations"};
+        for (const char* name : files) {
+            if (!LittleFS.exists(name)) {
+                char sdPath[64];
+                snprintf(sdPath, sizeof(sdPath), "/ratcom/transport%s", name);
+                uint8_t buf[4096];
+                size_t len = 0;
+                if (_sd->readFile(sdPath, buf, sizeof(buf), len) && len > 0) {
+                    File f = LittleFS.open(name, "w");
+                    if (f) { f.write(buf, len); f.close(); }
+                    Serial.printf("[RNS] Restored %s from SD (%d bytes)\n", name, (int)len);
+                }
+            }
+        }
+    }
+
     // Create and register LoRa interface
     _loraImpl = new LoRaInterface(radio, "LoRa.915");
     _loraIface = _loraImpl;
@@ -125,6 +143,18 @@ bool ReticulumManager::begin(SX1262* radio, FlashStore* flash) {
     RNS::Identity::known_destinations_maxsize(16);
     _reticulum.start();
     Serial.println("[RNS] Reticulum started (Transport Node)");
+
+    // Layer 1: Transport-level announce rate limiter — filters BEFORE Ed25519 verify
+    RNS::Transport::set_filter_packet_callback([](const RNS::Packet& packet) -> bool {
+        if (packet.packet_type() == RNS::Type::Packet::ANNOUNCE) {
+            static unsigned long windowStart = 0;
+            static unsigned int count = 0;
+            unsigned long now = millis();
+            if (now - windowStart >= 1000) { windowStart = now; count = 0; }
+            if (++count > RATCOM_MAX_ANNOUNCES_PER_SEC) return false;
+        }
+        return true;
+    });
 
     // Load persisted known destinations so Identity::recall() works
     // immediately after reboot for previously-seen nodes.
@@ -243,6 +273,47 @@ void ReticulumManager::loop() {
     if (_loraImpl) {
         _loraImpl->loop();
     }
+
+    unsigned long now = millis();
+    if (now - _lastPersist >= PATH_PERSIST_INTERVAL_MS) {
+        _lastPersist = now;
+        persistData();
+    }
+}
+
+void ReticulumManager::persistData() {
+    // Rotate through persist steps to spread file I/O across cycles
+    switch (_persistCycle) {
+        case 0:
+            RNS::Transport::persist_data();
+            break;
+        case 1:
+            RNS::Identity::persist_data();
+            break;
+        case 2:
+            // Backup routing tables and known destinations to SD
+            if (_sd && _sd->isReady()) {
+                static const char* files[] = {"/destination_table", "/packet_hashlist", "/known_destinations"};
+                for (const char* name : files) {
+                    File f = LittleFS.open(name, "r");
+                    if (f && f.size() > 0) {
+                        size_t sz = f.size();
+                        uint8_t* buf = (uint8_t*)malloc(sz);
+                        if (buf) {
+                            f.readBytes((char*)buf, sz);
+                            char sdPath[64];
+                            snprintf(sdPath, sizeof(sdPath), "/ratcom/transport%s", name);
+                            _sd->ensureDir("/ratcom/transport");
+                            _sd->writeDirect(sdPath, buf, sz);
+                            free(buf);
+                        }
+                    }
+                    if (f) f.close();
+                }
+            }
+            break;
+    }
+    _persistCycle = (_persistCycle + 1) % 3;
 }
 
 String ReticulumManager::identityHash() const {

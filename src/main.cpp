@@ -1,5 +1,5 @@
 // =============================================================================
-// RatCom v1.5.1 — Main Entry Point
+// RatCom v1.5.5 — Main Entry Point
 // C1-C7: Radio, Keyboard, Display, Reticulum, Nodes, WiFi, LXMF
 // =============================================================================
 
@@ -87,7 +87,6 @@ bool bootComplete = false;
 bool bootLoopRecovery = false;
 bool wifiSTAStarted = false;
 bool wifiSTAConnected = false;
-bool tcpClientsCreated = false;
 
 // --- Timing state (millis-based throttling) ---
 unsigned long lastRNS = 0;
@@ -95,20 +94,54 @@ unsigned long lastRender = 0;
 unsigned long lastAutoAnnounce = 0;
 unsigned long lastHeartbeat = 0;
 unsigned long lastStatusUpdate = 0;
-unsigned long lastContactSave = 0;
 unsigned long loopCycleStart = 0;
 unsigned long maxLoopTime = 0;
 
 // --- Intervals ---
-constexpr unsigned long RNS_INTERVAL_MS = 5;          // 200 Hz (matches Ratdeck)
+constexpr unsigned long RNS_INTERVAL_MS = 10;         // 100 Hz (matches Ratdeck)
 constexpr unsigned long RENDER_INTERVAL_MS = 50;       // 20 FPS
 constexpr unsigned long STATUS_UPDATE_MS = 1000;       // 1 Hz status bar
-constexpr unsigned long CONTACT_SAVE_MS = 30000;       // 30s contact batch save
 constexpr unsigned long ANNOUNCE_INTERVAL_MS = 120000; // 2 minutes
 constexpr unsigned long HEARTBEAT_INTERVAL_MS = 5000;
+constexpr unsigned long TCP_GLOBAL_BUDGET_MS = 12;      // Max cumulative TCP time per loop
 
 // Power-aware RNS interval
 unsigned long rnsInterval = RNS_INTERVAL_MS;
+
+// =============================================================================
+// TCP client management — stop old clients, create new from config
+// =============================================================================
+
+static void reloadTCPClients() {
+    // Stop and deregister existing clients
+    for (auto* tcp : tcpClients) tcp->stop();
+    for (auto& iface : tcpIfaces) {
+        RNS::Transport::deregister_interface(iface);
+    }
+    tcpClients.clear();
+    tcpIfaces.clear();
+
+    // Create new clients from current config
+    if (WiFi.status() == WL_CONNECTED) {
+        for (auto& ep : userConfig.settings().tcpConnections) {
+            if (ep.autoConnect && !ep.host.isEmpty()) {
+                char name[32];
+                snprintf(name, sizeof(name), "TCP.%s", ep.host.c_str());
+                auto* tcp = new TCPClientInterface(ep.host.c_str(), ep.port, name);
+                tcpIfaces.emplace_back(tcp);
+                tcpIfaces.back().mode(RNS::Type::Interface::MODE_GATEWAY);
+                RNS::Transport::register_interface(tcpIfaces.back());
+                tcp->start();
+                tcpClients.push_back(tcp);
+                Serial.printf("[TCP] Created client: %s:%d\n", ep.host.c_str(), ep.port);
+            }
+        }
+    }
+
+    if (tcpClients.empty()) {
+        Serial.println("[TCP] No active TCP connections");
+    }
+}
 
 // =============================================================================
 // Hotkey callbacks
@@ -430,6 +463,7 @@ void setup() {
     announceManager->setStorage(&sdStore, &flash);
     announceManager->setLocalDestHash(rns.destination().hash());
     announceManager->loadContacts();
+    announceManager->loadNameCache();
     announceHandler = RNS::HAnnounceHandler(announceManager);
     RNS::Transport::register_announce_handler(announceHandler);
 
@@ -646,7 +680,6 @@ void setup() {
     lastRNS = now;
     lastRender = now;
     lastStatusUpdate = now;
-    lastContactSave = now;
     loopCycleStart = now;
 
     Serial.println("[BOOT] RatCom ready");
@@ -720,38 +753,33 @@ void loop() {
                 Serial.printf("[NTP] Time sync started (UTC%+d, TZ=%s)\n", off, tz);
             }
 
-            if (!tcpClientsCreated) {
-                tcpClientsCreated = true;
-                for (auto& ep : userConfig.settings().tcpConnections) {
-                    if (ep.autoConnect) {
-                        char name[32];
-                        snprintf(name, sizeof(name), "TCP.%s", ep.host.c_str());
-                        auto* tcp = new TCPClientInterface(ep.host.c_str(), ep.port, name);
-                        tcpIfaces.emplace_back(tcp);
-                        tcpIfaces.back().mode(RNS::Type::Interface::MODE_GATEWAY);
-                        RNS::Transport::register_interface(tcpIfaces.back());
-                        tcp->start();
-                        tcpClients.push_back(tcp);
-                    }
-                }
-            }
+            // Recreate TCP clients on every WiFi connect (old clients may have stale sockets)
+            reloadTCPClients();
         } else if (!connected && wifiSTAConnected) {
             wifiSTAConnected = false;
-            Serial.println("[WIFI] STA disconnected (auto-reconnect active)");
+            // Stop and deregister TCP clients cleanly
+            for (auto* tcp : tcpClients) tcp->stop();
+            for (auto& iface : tcpIfaces) {
+                RNS::Transport::deregister_interface(iface);
+            }
+            tcpClients.clear();
+            tcpIfaces.clear();
+            Serial.println("[WIFI] STA disconnected, TCP interfaces deregistered");
         }
     }
 
-    // 6. TCP transport (frame-limited per client)
+    // 6. TCP transport (with global budget)
     if (wifiImpl) wifiImpl->loop();
-    for (auto* tcp : tcpClients) {
-        tcp->loop();
+    {
+        unsigned long tcpBudgetStart = millis();
+        for (auto* tcp : tcpClients) {
+            if (millis() - tcpBudgetStart >= TCP_GLOBAL_BUDGET_MS) break;
+            tcp->loop();
+        }
     }
 
-    // 7. Deferred contact save (every 30s)
-    if (now - lastContactSave >= CONTACT_SAVE_MS) {
-        lastContactSave = now;
-        if (announceManager) announceManager->flushContacts();
-    }
+    // 7. Announce manager deferred saves (contacts + name cache)
+    if (announceManager) announceManager->loop();
 
     // 8. Power management
     power.loop();

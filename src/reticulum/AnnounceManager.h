@@ -5,6 +5,7 @@
 #include <Bytes.h>
 #include <vector>
 #include <string>
+#include <map>
 
 class SDStore;
 class FlashStore;
@@ -37,10 +38,12 @@ public:
     // Save/load persisted contacts
     void saveContacts();
     void loadContacts();
+    void loop();  // Call from main loop — handles deferred saves
 
-    // Deferred save: flush only if dirty (call from main loop every 30s)
-    void flushContacts();
-    bool isContactsDirty() const { return _contactsDirty; }
+    // Name cache: persists hash→name mappings so names survive reboots
+    std::string lookupName(const std::string& hexHash) const;
+    void saveNameCache();
+    void loadNameCache();
 
     // Node list access
     const std::vector<DiscoveredNode>& nodes() const { return _nodes; }
@@ -72,5 +75,13 @@ private:
     FlashStore* _flash = nullptr;
     RNS::Bytes _localDestHash;
     bool _contactsDirty = false;
+    bool _nameCacheDirty = false;
+    unsigned long _lastContactSave = 0;
+    std::map<std::string, std::string> _nameCache;  // hexHash → displayName
+    unsigned long _globalAnnounceWindowStart = 0;
+    unsigned int _globalAnnounceCount = 0;
+    static constexpr unsigned int MAX_GLOBAL_ANNOUNCES_PER_SEC = 3;
     static constexpr int MAX_NODES = 24;
+    static constexpr unsigned long CONTACT_SAVE_INTERVAL_MS = 30000;
+    static constexpr unsigned long ANNOUNCE_MIN_INTERVAL_MS = 200;  // Rate-limit announce processing
 };

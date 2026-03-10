@@ -41,6 +41,7 @@ public:
     bool begin(SX1262* radio, FlashStore* flash);
     void setSDStore(SDStore* sd) { _sd = sd; }
     void loop();
+    void persistData();
 
     // Identity
     const RNS::Identity& identity() const { return _identity; }
@@ -72,5 +73,7 @@ private:
     FlashStore* _flash = nullptr;
     SDStore* _sd = nullptr;
     bool _transportActive = false;
+    unsigned long _lastPersist = 0;
     unsigned long _lastAnnounceTime = 0;
+    uint8_t _persistCycle = 0;  // Rotating: 0=Transport, 1=Identity, 2=SD backup
 };

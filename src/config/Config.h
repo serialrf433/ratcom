@@ -6,8 +6,8 @@
 
 #define RATPUTER_VERSION_MAJOR  1
 #define RATPUTER_VERSION_MINOR  5
-#define RATPUTER_VERSION_PATCH  4
-#define RATPUTER_VERSION_STRING "1.5.4"
+#define RATPUTER_VERSION_PATCH  5
+#define RATPUTER_VERSION_STRING "1.5.5"
 
 // --- Feature Flags ---
 #define HAS_DISPLAY     true
@@ -42,6 +42,9 @@
 #define TCP_DEFAULT_PORT            4242
 #define TCP_RECONNECT_INTERVAL_MS   10000
 #define TCP_CONNECT_TIMEOUT_MS      5000
+
+// --- Announce Flood Defense ---
+#define RATCOM_MAX_ANNOUNCES_PER_SEC 2     // Transport-level rate limit (before Ed25519 verify)
 
 // --- Limits ---
 #define RATPUTER_MAX_NODES           50
