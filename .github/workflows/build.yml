@@ -24,6 +24,16 @@ jobs:
       - name: Build firmware
         run: pio run -e ratputer_915
 
+      - name: Merge single .bin for M5Burner
+        run: |
+          esptool.py --chip esp32s3 merge_bin \
+            --flash_mode dio --flash_size 8MB \
+            -o ratcom-merged.bin \
+            0x0000 .pio/build/ratputer_915/bootloader.bin \
+            0x8000 .pio/build/ratputer_915/partitions.bin \
+            0xe000 ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin \
+            0x10000 .pio/build/ratputer_915/firmware.bin
+
       - name: Package firmware ZIP
         run: |
           mkdir -p ratcom-firmware
@@ -31,6 +41,7 @@ jobs:
           cp .pio/build/ratputer_915/partitions.bin ratcom-firmware/
           cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin ratcom-firmware/
           cp .pio/build/ratputer_915/firmware.bin ratcom-firmware/
+          cp ratcom-merged.bin ratcom-firmware/
           cat > ratcom-firmware/manifest.json << 'MANIFEST'
           {
             "chipFamily": "ESP32-S3",
@@ -51,7 +62,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ratcom-firmware
-          path: ratcom-firmware.zip
+          path: |
+            ratcom-firmware.zip
+            ratcom-merged.bin
 
   release:
     needs: build
@@ -73,6 +86,16 @@ jobs:
       - name: Build firmware
         run: pio run -e ratputer_915
 
+      - name: Merge single .bin for M5Burner
+        run: |
+          esptool.py --chip esp32s3 merge_bin \
+            --flash_mode dio --flash_size 8MB \
+            -o ratcom-merged.bin \
+            0x0000 .pio/build/ratputer_915/bootloader.bin \
+            0x8000 .pio/build/ratputer_915/partitions.bin \
+            0xe000 ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin \
+            0x10000 .pio/build/ratputer_915/firmware.bin
+
       - name: Package firmware ZIP
         run: |
           mkdir -p ratcom-firmware
@@ -80,6 +103,7 @@ jobs:
           cp .pio/build/ratputer_915/partitions.bin ratcom-firmware/
           cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin ratcom-firmware/
           cp .pio/build/ratputer_915/firmware.bin ratcom-firmware/
+          cp ratcom-merged.bin ratcom-firmware/
           cat > ratcom-firmware/manifest.json << 'MANIFEST'
           {
             "chipFamily": "ESP32-S3",
@@ -99,5 +123,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ratcom-firmware.zip
+          files: |
+            ratcom-firmware.zip
+            ratcom-merged.bin
           generate_release_notes: true
