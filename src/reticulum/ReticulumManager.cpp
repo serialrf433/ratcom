@@ -133,15 +133,15 @@ bool ReticulumManager::begin(SX1262* radio, FlashStore* flash) {
     }
     Serial.println("[RNS] LoRa interface registered");
 
-    // Create Reticulum instance and enable transport
+    // Create Reticulum instance (endpoint only — no transport/rebroadcast)
     _reticulum = RNS::Reticulum();
-    RNS::Reticulum::transport_enabled(true);
+    RNS::Reticulum::transport_enabled(false);
     RNS::Reticulum::probe_destination_enabled(true);
     // Cap table sizes to prevent OOM on memory-constrained ESP32 (320KB RAM)
     RNS::Transport::path_table_maxsize(16);
     RNS::Transport::announce_table_maxsize(16);
     _reticulum.start();
-    Serial.println("[RNS] Reticulum started (Transport Node)");
+    Serial.println("[RNS] Reticulum started (Endpoint)");
 
     // Layer 1: Transport-level announce rate limiter — filters BEFORE Ed25519 verify
     RNS::Transport::set_filter_packet_callback([](const RNS::Packet& packet) -> bool {
@@ -178,7 +178,7 @@ bool ReticulumManager::begin(SX1262* radio, FlashStore* flash) {
     Serial.printf("[RNS] Destination: %s\n", _destination.hash().toHex().c_str());
 
     _transportActive = true;
-    Serial.println("[RNS] Transport node active");
+    Serial.println("[RNS] Endpoint active");
     return true;
 }
 
