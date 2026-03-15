@@ -273,11 +273,12 @@ static RNS::Bytes encodeAnnounceName(const String& name) {
     if (name.isEmpty()) return {};
     size_t len = name.length();
     if (len > 31) len = 31;
-    uint8_t buf[2 + 31];
+    uint8_t buf[3 + 31];
     buf[0] = 0x91;                     // msgpack fixarray(1)
-    buf[1] = 0xA0 | (uint8_t)len;     // msgpack fixstr(len)
-    memcpy(buf + 2, name.c_str(), len);
-    return RNS::Bytes(buf, 2 + len);
+    buf[1] = 0xC4;                     // msgpack bin 8
+    buf[2] = (uint8_t)len;             // bin len
+    memcpy(buf + 3, name.c_str(), len);
+    return RNS::Bytes(buf, 3 + len);
 }
 
 static void announceWithName() {

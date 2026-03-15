@@ -873,11 +873,12 @@ void SettingsScreen::applyRadioPreset(int preset) {
         if (!name.isEmpty()) {
             size_t len = name.length();
             if (len > 31) len = 31;
-            uint8_t buf[2 + 31];
+            uint8_t buf[3 + 31];
             buf[0] = 0x91;
-            buf[1] = 0xA0 | (uint8_t)len;
-            memcpy(buf + 2, name.c_str(), len);
-            _rns->announce(RNS::Bytes(buf, 2 + len));
+            buf[1] = 0xC4;
+            buf[2] = (uint8_t)len;
+            memcpy(buf + 3, name.c_str(), len);
+            _rns->announce(RNS::Bytes(buf, 3 + len));
         } else {
             _rns->announce();
         }
