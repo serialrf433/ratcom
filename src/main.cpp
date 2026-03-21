@@ -403,20 +403,6 @@ void setup() {
         sdStore.ensureDir("/ratcom/messages");
         sdStore.ensureDir("/ratcom/contacts");
         sdStore.ensureDir("/ratcom/identity");
-
-        Serial.println("[SD] Send 'WIPE' now to wipe SD card (500ms window)...");
-        unsigned long wipeDeadline = millis() + 500;
-        String cmd;
-        while (millis() < wipeDeadline) {
-            while (Serial.available()) cmd += (char)Serial.read();
-            if (cmd.indexOf("WIPE") >= 0) {
-                sdStore.wipeRatcom();
-                Serial.println("[SD] SD card wiped and reinitialized");
-                break;
-            }
-            delay(10);
-        }
-
         bootScreen.setProgress(0.68f, "SD card ready");
     } else {
         bootScreen.setProgress(0.68f, "No SD card");
@@ -652,14 +638,9 @@ void setup() {
             lastAutoAnnounce = millis();
             Serial.println("[BOOT] Initial announce sent");
         });
-        // Check if SD has old data that should be cleaned
-        if (sdStore.isReady() && sdStore.hasExistingData()) {
-            ui.setScreen(&dataCleanScreen);
-            Serial.println("[BOOT] Old SD data found, showing data clean screen");
-        } else {
-            ui.setScreen(&nameInputScreen);
-            Serial.println("[BOOT] Showing name input screen");
-        }
+        // First boot — go to name input (SD data is handled gracefully by dual-backend)
+        ui.setScreen(&nameInputScreen);
+        Serial.println("[BOOT] Showing name input screen");
     } else {
         ui.setBootMode(false);
         ui.setScreen(&homeScreen);
