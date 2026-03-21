@@ -154,12 +154,17 @@ bool LXMFManager::sendDirect(LXMFMessage& msg) {
         linkPayload.insert(linkPayload.end(), msg.destHash.data(), msg.destHash.data() + 16);
         linkPayload.insert(linkPayload.end(), payload.begin(), payload.end());
         RNS::Bytes linkBytes(linkPayload.data(), linkPayload.size());
-        if (linkBytes.size() <= RNS::Type::Reticulum::MDU) {
+        // Cap link delivery to avoid LoRa MTU truncation (see ratdeck comment)
+        static constexpr size_t LORA_SAFE_LINK_PAYLOAD = 180;
+        if (linkBytes.size() <= LORA_SAFE_LINK_PAYLOAD) {
             Serial.printf("[LXMF] sending via link: %d bytes to %s\n",
                           (int)linkBytes.size(), msg.destHash.toHex().substr(0, 8).c_str());
             RNS::Packet packet(_outLink, linkBytes);
             RNS::PacketReceipt receipt = packet.send();
             if (receipt) { sent = true; }
+        } else {
+            Serial.printf("[LXMF] link payload too large for LoRa (%d > %d), using opportunistic\n",
+                          (int)linkBytes.size(), (int)LORA_SAFE_LINK_PAYLOAD);
         }
     }
 
