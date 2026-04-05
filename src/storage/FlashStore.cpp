@@ -159,7 +159,7 @@ File FlashStore::openFile(const char* path, const char* mode) {
 bool FlashStore::writeAtomic(const char* path, const uint8_t* data, size_t len) {
     if (!_ready) return false;
     // Refuse writes when heap is critically low — prevents OOM-induced LittleFS unmount
-    if (ESP.getFreeHeap() < 10000) {
+    if (ESP.getFreeHeap() < 4096) {
         Serial.printf("[FLASH] Write refused (heap=%lu) — OOM protection: %s\n",
                       (unsigned long)ESP.getFreeHeap(), path);
         return false;
@@ -234,7 +234,7 @@ bool FlashStore::writeString(const char* path, const String& data) {
 
 bool FlashStore::writeDirect(const char* path, const uint8_t* data, size_t len) {
     if (!_ready) return false;
-    if (ESP.getFreeHeap() < 10000) {
+    if (ESP.getFreeHeap() < 4096) {
         Serial.printf("[FLASH] Write refused (heap=%lu) — OOM protection: %s\n",
                       (unsigned long)ESP.getFreeHeap(), path);
         return false;
@@ -269,20 +269,6 @@ String FlashStore::readString(const char* path) {
 }
 
 bool FlashStore::isReady() {
-    if (!_ready) return false;
-    // Periodically verify LittleFS is still mounted (detects OOM-induced unmount)
-    FSLock lock(_mutex);
-    if (!LittleFS.exists("/config")) {
-        Serial.println("[FLASH] LittleFS unmounted! Attempting remount...");
-        LittleFS.end();
-        if (LittleFS.begin(false)) {  // false = don't format, just remount
-            Serial.println("[FLASH] Remounted successfully");
-            _ready = true;
-        } else {
-            Serial.println("[FLASH] Remount failed!");
-            _ready = false;
-        }
-    }
     return _ready;
 }
 

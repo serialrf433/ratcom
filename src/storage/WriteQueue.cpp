@@ -118,7 +118,10 @@ void WriteQueue::processJob(const WriteJob& job) {
             _flash->ensureDir(flashDir.c_str());
         }
 
-        _flash->writeDirect(job.flashPath, (const uint8_t*)job.data.c_str(), job.data.length());
+        bool ok = _flash->writeDirect(job.flashPath, (const uint8_t*)job.data.c_str(), job.data.length());
+        if (!ok) {
+            Serial.printf("[WRITEQ] Flash write FAILED: %s\n", job.flashPath);
+        }
     }
 }
 
