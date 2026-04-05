@@ -26,7 +26,7 @@ struct UserSettings {
     uint8_t radioRegion = REGION_AMERICAS;
 
     // WiFi
-    RatWiFiMode wifiMode = RAT_WIFI_AP;
+    RatWiFiMode wifiMode = RAT_WIFI_OFF;
     String wifiAPSSID;
     String wifiAPPassword = WIFI_AP_PASSWORD;
     String wifiSTASSID;

@@ -471,14 +471,21 @@ void setup() {
     // Load user config (SD primary, flash fallback)
     userConfig.load(sdStore, flash);
 
-    // Seed default Ratspeak TCP hub if no connections configured
+    // Seed default TCP hubs if no connections configured (off by default)
     if (userConfig.settings().tcpConnections.empty()) {
-        TCPEndpoint ep;
-        ep.host = "rns.ratspeak.org";
-        ep.port = 4242;
-        ep.autoConnect = true;
-        userConfig.settings().tcpConnections.push_back(ep);
-        Serial.println("[CONFIG] Default TCP hub: rns.ratspeak.org:4242");
+        TCPEndpoint ep1;
+        ep1.host = "rns.ratspeak.org";
+        ep1.port = 4242;
+        ep1.autoConnect = false;
+        userConfig.settings().tcpConnections.push_back(ep1);
+
+        TCPEndpoint ep2;
+        ep2.host = "1.ratspeak.org";
+        ep2.port = 4141;
+        ep2.autoConnect = false;
+        userConfig.settings().tcpConnections.push_back(ep2);
+
+        Serial.println("[CONFIG] Default TCP hubs seeded (off by default)");
     }
 
     // Boot loop recovery: force WiFi OFF to break crash cycle
