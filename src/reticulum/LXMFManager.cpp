@@ -344,9 +344,14 @@ void LXMFManager::processIncoming(const uint8_t* data, size_t len, const RNS::By
         msg.destHash = destHash;
     }
 
-    if (msg.timestamp < 1700000000) {
+    // Use local receive time for incoming messages so all timestamps in
+    // the conversation reflect THIS device's clock, not the sender's.
+    // Prevents confusing display when a peer's clock is wrong/unsynced.
+    {
         time_t now = time(nullptr);
-        if (now > 1700000000) msg.timestamp = (double)now;
+        if (now > 1700000000) {
+            msg.timestamp = (double)now;
+        }
     }
 
     // Queue for processing in loop() — no I/O, no mutex, no callbacks here
